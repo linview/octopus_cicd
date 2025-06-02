@@ -1,13 +1,21 @@
 [project]
-name = "see_octopus"
+name = "octopus"
 version = "0.1.0"
-description = "See Octopus Project"
+description = "A flexible CICD infrastructure toolkit for test orchestration and container management"
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
 dependencies = [
     "pre-commit>=3.6.0",
     "ruff>=0.3.0",
+    "pyyaml>=6.0",           # DSL 解析
+    "docker>=7.0.0",         # 容器管理
+    "click>=8.0.0",          # CLI 工具
+    "jinja2>=3.0.0",        # 模板渲染
+    "python-gitlab>=4.4.0",  # GitLab API 客户端
+    "PyGithub>=2.2.0",      # GitHub API 客户端
+    "python-jenkins>=1.8.0", # Jenkins API 客户端
+    "requests>=2.31.0",      # HTTP 客户端
 ]
 requires-python = "^3.10"
 
@@ -22,7 +30,7 @@ ignore = []
 line-length = 100
 
 # 兼容性设置
-target-version = "py312"
+target-version = "py310"
 
 [tool.ruff.lint]
 # 允许使用 `#noqa` 注释来禁用规则
