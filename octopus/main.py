@@ -1,8 +1,6 @@
-import os
-
 from octopus.dsl.config import TestConfig
-from octopus.dsl.parser import ConfigParser
 from octopus.orchestration.manager import TestManager
+
 
 def main():
     config = TestConfig.from_yaml("config.yaml")

@@ -1,5 +1,5 @@
 .venv*
-.pre-commit-config.yaml
 __pycache__
 *.egg-info*
 .vscode/
+.DS_Store

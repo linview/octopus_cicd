@@ -12,7 +12,7 @@ stages:
 # define variables
 variables:
   # deploy variables
-  DEPLOY_ENV: 
+  DEPLOY_ENV:
     description: "Deploy environment"
     value: "test"
     options:
@@ -22,16 +22,16 @@ variables:
   APP_VERSION: "1.0.0"
   ARTIFACT_EXPIRY: "1 week"
   # build related variables
-  BUILD_DIR: 
+  BUILD_DIR:
     "value": "build"
     "description": "Build directory"
-  ARTIFACTS_DIR: 
+  ARTIFACTS_DIR:
     "value": "artifacts"
     "description": "Artifacts directory"
-  TEST_DIR: 
+  TEST_DIR:
     "value": "tests"
     "description": "Test directory"
-  
+
 # define artifacts template
 .artifacts_template: &artifacts_definition
   artifacts:
@@ -52,7 +52,7 @@ variables:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
       allow_failure:
-        exit_codes: 
+        exit_codes:
           - 2  # allow exit_code 2 as pipeline warning
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: always
@@ -69,8 +69,9 @@ lint_job:
 
 unit_test_job:
   stage: unit_test
-  <<: *artifacts_definition
-  <<: *exit_code_handler
+  extends:
+    - .artifacts_template
+    - .exit_code_handler
   script:
     - echo "Running unit tests..."
     - ./run_unit_tests.sh
@@ -78,7 +79,7 @@ unit_test_job:
 
 build_job:
   stage: build
-  <<: *artifacts_definition
+  extends: .artifacts_template
   allow_failure: false
   artifacts:
     paths:
@@ -87,7 +88,6 @@ build_job:
     - echo "Building application..."
     - mkdir -p ${BUILD_DIR}
     - ./build.sh
-
 
 sit_deploy_job:
   stage: sit_deploy
@@ -98,8 +98,9 @@ sit_deploy_job:
 
 sit_test_job:
   stage: sit_run
-  <<: *artifacts_definition  # use artifacts template
-  <<: *exit_code_handler    # use exit code handler template
+  extends:
+    - .artifacts_template
+    - .exit_code_handler
   script:
     - echo "Running tests..."
     - ./run_tests.sh

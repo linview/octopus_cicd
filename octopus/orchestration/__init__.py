@@ -2,6 +2,6 @@
 Test orchestration and management module
 """
 
-from . import manager, composer
+from . import composer, manager
 
-__all__ = ["composer", "manager"] 
+__all__ = ["composer", "manager"]

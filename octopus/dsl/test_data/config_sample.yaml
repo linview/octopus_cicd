@@ -1,0 +1,46 @@
+version: 1.0.0
+name: config_sample
+description: Sample config DSL
+
+inputs:
+  - servic_name: service1
+  - $name: input2
+  - $HOST_HTTP_PORT: 8080
+  - $ENV_LOG_SETTING: "NIM_LOG=debug"
+
+services:
+  $service_name:
+    trigger: [ test1, test2 ]
+    image: nginx:latest
+    ports:
+      - ${$HOST_HTTP_PORT}:80
+    environment:
+      - ENV=test
+      - ${$ENV_LOG_SETTING}
+    volumes:
+      - ~/data:/data
+  service2:
+    depends_on:
+      - service2
+    image: nginx:latest
+    ports:
+      - 80:80
+
+tests:
+  test1:
+    steps:
+      - name: step1
+        command: echo "Hello, World!"
+        depends_on:
+          - step2
+      - name: step2
+        command: echo "Hello, World!"
+  test2:
+    needs: [ service1 ]
+    steps:
+      - name: step3
+        command: echo "Hello, World!"
+        depends_on:
+          - step4
+      - name: step4
+        command: echo "Hello, World!"

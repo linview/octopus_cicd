@@ -1,5 +1,6 @@
 from octopus.orchestration.manager import TestManager
 
+
 class Composer:
     """Composer"""
 

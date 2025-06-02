@@ -1,44 +1,74 @@
 [project]
-name = "octopus"
+# deps managed by uv
+name = "see_octopus"
 version = "0.1.0"
-description = "A flexible CICD infrastructure toolkit for test orchestration and container management"
-authors = [
-    { name = "Your Name", email = "your.email@example.com" }
-]
+description = "CICD infra for SDLC"
+requires-python = ">=3.10, <4.0"
 dependencies = [
-    "pre-commit>=3.6.0",
-    "ruff>=0.3.0",
-    "pyyaml>=6.0",           # DSL 解析
-    "docker>=7.0.0",         # 容器管理
-    "click>=8.0.0",          # CLI 工具
-    "jinja2>=3.0.0",        # 模板渲染
-    "python-gitlab>=4.4.0",  # GitLab API 客户端
-    "PyGithub>=2.2.0",      # GitHub API 客户端
-    "python-jenkins>=1.8.0", # Jenkins API 客户端
-    "requests>=2.31.0",      # HTTP 客户端
+    "pyyaml>=6.0",
+    "click>=8.0",
+    "pydantic>=2.0",
+    "requests>=2.31.0",
+    "docker>=7.1.0",
+    "jinja2>=3.1.6",
+    "python-gitlab>=5.6.0",
+    "PyGithub>=2.6.1",
+    "python-jenkins>=1.8.2",
+    "requests-toolbelt>=1.0.0"
 ]
-requires-python = "^3.10"
 
-[build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
+[project.optional-dependencies]
+# deps managed by uv
+dev = [
+    "ruff>=0.3.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "cryptography>=45.0.3",
+    "virtualenv>=20.31.2"
+]
+
+[tool.poetry]
+name = "see_octopus"
+version = "0.1.0"
+description = "CICD infra for SDLC"
+authors = ["linview@gmail.com"]
+packages = []
+#package-mode = false
+
+[tool.poetry.dependencies]
+# deps managed by poetry
+python = ">=3.10, <4.0"
+pyyaml = "^6.0"
+click = "^8.0"
+pydantic = "^2.0"
+requests = "^2.31.0"
+docker = "^7.1.0"
+jinja2 = "^3.1.6"
+python-gitlab = "^5.6.0"
+PyGithub = "^2.6.1"
+python-jenkins = "^1.8.2"
+requests-toolbelt = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+# deps managed by poetry
+ruff = "^0.3.0"
+pre-commit = "^4.2.0"
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+cryptography = "^45.0.3"
+virtualenv = "^20.31.2"
 
 [tool.ruff]
-# 启用 pycodestyle, pyflakes, isort 等规则
-select = ["E", "F", "I", "N", "W", "B"]
-ignore = []
-line-length = 100
-
-# 兼容性设置
+line-length = 120
 target-version = "py310"
-
-[tool.ruff.lint]
-# 允许使用 `#noqa` 注释来禁用规则
-ignore-init-module-imports = true
+lint.select = ["E", "F", "I", "N", "W", "B", "UP", "C"]
 
 [tool.ruff.format]
-# 格式化配置
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
-line-ending = "auto" 
+line-ending = "auto"
+
+[tool.uv]
+index-url = "https://pypi.org/simple"

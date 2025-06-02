@@ -1,4 +1,5 @@
-from octopus.dsl.config import TestConfig, ServiceConfig
+from octopus.dsl.config import TestConfig
+
 
 class ConfigValidator:
     """DSL Config validator"""

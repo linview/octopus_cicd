@@ -1,26 +1,30 @@
 """
 Test configuration DSL definition
 """
+
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+
 
 @dataclass
 class ServiceConfig:
     """Container service configuration"""
+
     name: str
     image: str
-    ports: Optional[List[str]] = None
-    environment: Optional[Dict[str, str]] = None
-    volumes: Optional[List[str]] = None
-    depends_on: Optional[List[str]] = None
+    ports: list[str] | None = None
+    environment: dict[str, str] | None = None
+    volumes: list[str] | None = None
+    depends_on: list[str] | None = None
+
 
 @dataclass
 class TestConfig:
     """Test environment configuration"""
-    services: Dict[str, ServiceConfig]
-    
+
+    services: dict[str, ServiceConfig]
+
     @classmethod
     def from_yaml(cls, path: str) -> "TestConfig":
         """Load configuration from YAML file"""
         # TODO: Implement YAML loading
-        pass 
+        pass

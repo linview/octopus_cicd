@@ -1,5 +1,6 @@
 from octopus.core.container import Container
 
+
 class Service(Container):
     """Service"""
 
