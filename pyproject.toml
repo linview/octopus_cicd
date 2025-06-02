@@ -1,0 +1,36 @@
+[project]
+name = "see_octopus"
+version = "0.1.0"
+description = "See Octopus Project"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+dependencies = [
+    "pre-commit>=3.6.0",
+    "ruff>=0.3.0",
+]
+requires-python = "^3.10"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+# 启用 pycodestyle, pyflakes, isort 等规则
+select = ["E", "F", "I", "N", "W", "B"]
+ignore = []
+line-length = 100
+
+# 兼容性设置
+target-version = "py312"
+
+[tool.ruff.lint]
+# 允许使用 `#noqa` 注释来禁用规则
+ignore-init-module-imports = true
+
+[tool.ruff.format]
+# 格式化配置
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto" 

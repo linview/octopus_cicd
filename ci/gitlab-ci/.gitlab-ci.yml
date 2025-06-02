@@ -1,0 +1,113 @@
+# define stages could be used in sowfware SDLC
+stages:
+  - lint
+  - unit_test
+  - build
+  - sit_deploy
+  - sit_run
+  - sit_evaluate
+  - release
+
+
+# define variables
+variables:
+  # deploy variables
+  DEPLOY_ENV: 
+    description: "Deploy environment"
+    value: "test"
+    options:
+      - "test"
+      - "stage"
+      - "prod"
+  APP_VERSION: "1.0.0"
+  ARTIFACT_EXPIRY: "1 week"
+  # build related variables
+  BUILD_DIR: 
+    "value": "build"
+    "description": "Build directory"
+  ARTIFACTS_DIR: 
+    "value": "artifacts"
+    "description": "Artifacts directory"
+  TEST_DIR: 
+    "value": "tests"
+    "description": "Test directory"
+  
+# define artifacts template
+.artifacts_template: &artifacts_definition
+  artifacts:
+    name: "${CI_PIPELINE_ID}-${CI_COMMIT_REF_NAME}"
+    expire_in: ${ARTIFACT_EXPIRY}
+    when: always
+    paths:
+      - ${ARTIFACTS_DIR}/**/*
+    reports:
+      junit: ${ARTIFACTS_DIR}/**/junit-*.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: ${ARTIFACTS_DIR}/coverage/cobertura-coverage.xml
+
+# define exit code handler template
+.exit_code_handler: &exit_code_handler
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      allow_failure:
+        exit_codes: 
+          - 2  # allow exit_code 2 as pipeline warning
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+      allow_failure: false  # main branch should not allow failure
+
+# examples
+lint_job:
+  stage: lint
+  allow_failure: false
+  script:
+    - echo "Running lint..."
+    - ./run_lint.sh
+    - exit $?  # return exit code of lint script
+
+unit_test_job:
+  stage: unit_test
+  <<: *artifacts_definition
+  <<: *exit_code_handler
+  script:
+    - echo "Running unit tests..."
+    - ./run_unit_tests.sh
+    - exit $?  # return exit code of unit test script
+
+build_job:
+  stage: build
+  <<: *artifacts_definition
+  allow_failure: false
+  artifacts:
+    paths:
+      - ${BUILD_DIR}/*
+  script:
+    - echo "Building application..."
+    - mkdir -p ${BUILD_DIR}
+    - ./build.sh
+
+
+sit_deploy_job:
+  stage: sit_deploy
+  allow_failure: false
+  script:
+    - echo "Deploying to ${DEPLOY_ENV}..."
+    - ./deploy.sh
+
+sit_test_job:
+  stage: sit_run
+  <<: *artifacts_definition  # use artifacts template
+  <<: *exit_code_handler    # use exit code handler template
+  script:
+    - echo "Running tests..."
+    - ./run_tests.sh
+    - exit $?  # return exit code of test script
+
+release_job:
+  stage: release
+  allow_failure: false
+  script:
+    - echo "Releasing application..."
+    - ./release.sh
