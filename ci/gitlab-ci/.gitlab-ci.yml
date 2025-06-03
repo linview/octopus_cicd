@@ -33,7 +33,7 @@ variables:
     "description": "Test directory"
 
 # define artifacts template
-.artifacts_template: &artifacts_definition
+.artifacts_template:
   artifacts:
     name: "${CI_PIPELINE_ID}-${CI_COMMIT_REF_NAME}"
     expire_in: ${ARTIFACT_EXPIRY}
@@ -47,7 +47,7 @@ variables:
         path: ${ARTIFACTS_DIR}/coverage/cobertura-coverage.xml
 
 # define exit code handler template
-.exit_code_handler: &exit_code_handler
+.exit_code_handler:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
