@@ -14,10 +14,10 @@ services:
     image: nginx:latest
     ports:
       - ${$HOST_HTTP_PORT}:80
-    environment:
+    envs:
       - ENV=test
       - ${$ENV_LOG_SETTING}
-    volumes:
+    vols:
       - ~/data:/data
   service2:
     depends_on:
