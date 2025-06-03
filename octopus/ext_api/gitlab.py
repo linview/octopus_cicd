@@ -6,7 +6,7 @@ from typing import Any
 
 import gitlab
 
-from octopus.ci.base import CIAdapter
+from octopus.ext_api.base import CIAdapter
 
 
 class GitLabRunner:

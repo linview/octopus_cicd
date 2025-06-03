@@ -2,6 +2,6 @@
 DSL module for test configuration and parsing
 """
 
-from . import dsl_config, parser, validator
+from . import dsl_config, dsl_validator, parser
 
-__all__ = ["dsl_config", "parser", "validator"]
+__all__ = ["dsl_config", "parser", "dsl_validator"]

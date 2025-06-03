@@ -2,7 +2,9 @@
 Service configuration models.
 """
 
-from pydantic import BaseModel, Field, PrivateAttr
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class Service(BaseModel):
@@ -11,8 +13,8 @@ class Service(BaseModel):
     This model represents the configuration of a service.
     """
 
-    _name: str = PrivateAttr(description="Service name")
-    _desc: str = PrivateAttr(description="Service description")
+    name: str = Field(description="Service name")
+    desc: str = Field(description="Service description")
 
     image: str = Field(description="Service image")
     args: list[str] | None = Field(default_factory=list, description="Service arguments")
@@ -32,23 +34,14 @@ class Service(BaseModel):
         self._name = data.get("name", "")
         self._desc = data.get("desc", "")
 
-    @property
-    def name(self) -> str:
-        """Get service name.
+    @classmethod
+    def from_dict(cls, body: dict[str, Any]) -> "Service":
+        """Create a Service instance from a dictionary.
 
-        Returns:
-            str: Service name
+        Args:
+            body: Dictionary containing service configuration
         """
-        return self._name
-
-    @property
-    def desc(self) -> str:
-        """Get service description.
-
-        Returns:
-            str: Service description
-        """
-        return self._desc
+        return cls(**body)
 
     class Config:
         """Pydantic model configuration"""

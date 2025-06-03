@@ -9,7 +9,7 @@ inputs:
   - $ENV_LOG_SETTING: "NIM_LOG=debug"
 
 services:
-  service_simple:
+  - name: service_simple
     desc: "simple service verify container start"
     image: nginx:latest
     # if no '--name' in args, the container name will be the service name:w
@@ -24,7 +24,7 @@ services:
       - DEBUG_LOG=debug
     vols:
       - ~/data:/data
-  $service_name:      # reserved kw instance w/ lazy-var
+  - name: $service_name      # reserved kw instance w/ lazy-var
     desc: "service verify lazy-var in service name, envs, ports, vols; 'depends_on' kw"
     # serivce dependency kw: service_A depends_on service_B; service_A, service_B must be valid
     depends_on:
@@ -39,7 +39,7 @@ services:
       - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
     vols:
       - ~/data:/data
-  service2:
+  - name: service2
     desc: "service verify 'trigger' kw"
     trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
     image: nginx:latest
@@ -49,7 +49,7 @@ services:
     vols: []
     ports:
       - 80:80
-  test_container:
+  - name: test_container
     desc: "test container verify 'needs', 'depends_on' kw "
     # container include test_cases, it can be triggered by test_cases
     depends_on: [ service_simple ]
@@ -63,7 +63,7 @@ services:
     vols: []
 
 tests:
-  test_shell:
+  - name: test_shell
     # default test name is the test case name, e.g. test_shell, test_http, test_pytest, test_docker, test_grpc
     desc: "test in shell cmd"
     mode: shell
@@ -73,7 +73,7 @@ tests:
       exit_code: 0
       stdout: "Hello, World!"
       stderr: ""
-  test_http:
+  - name: test_http
     desc: "test via http client"
     mode: http
     runner:
@@ -84,7 +84,7 @@ tests:
     expect:
       status_code: 201
       response: "{\"data\": \"Hello, World!\"}"
-  test_pytest:
+  - name: test_pytest
     # test running w/ pytest cli, e.g. pytest --rootdir=<root_dir> <args>.
     # <root_dir> is the root directory of the project, <args> is the arguments for pytest.
     desc: "test run by pytest cli"
@@ -95,7 +95,7 @@ tests:
     expect:
       # pytest exit_code: https://docs.pytest.org/en/stable/reference/reference.html#pytest.ExitCode
       exit_code: 0
-  test_docker:
+  - name: test_docker
     # assume test case is running in docker container, e..g docker exec <container_id> <cmd>
     needs: [ test_container ]   # needs kw: test_docker will check service test_container is running
     desc: "test run in docker container"
@@ -106,7 +106,7 @@ tests:
       exit_code: 0
       stdout: "Hello, World!"
       stderr: ""
-  test_grpc:
+  - name: test_grpc
     # grpcurl -d '{"name": "World"}' -plaintext localhost:50051 hello.Greeter/SayHello
     desc: "test run by grpc client"
     mode: grpc

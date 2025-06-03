@@ -28,14 +28,51 @@ class Test(BaseModel):
     name: str = Field(description="Test name")
     desc: str = Field(description="Test description")
     mode: TestMode = Field(description="Test mode")
-    needs: list[str] | None = Field(default_factory=list, description="Test dependencies")
+    needs: list[str] | None = Field(default=[], description="Test's service dependencies")
     runner: ShellRunner | HttpRunner | GrpcRunner | PytestRunner | DockerRunner = Field(
         description="Test runner configuration"
     )
     expect: Expect = Field(description="Test expectations")
 
+    def __init__(self, **data: Any):
+        """Initialize the test configuration.
+
+        Args:
+            **data: Test configuration data
+        """
+        # initialize other fields first
+        super().__init__(**data)
+
+        # manually create expect instance, pass in mode
+        if "expect" in data and isinstance(data["expect"], dict) and not isinstance(data["expect"], Expect):
+            self.expect = Expect(**data["expect"])
+
+    @validator("expect")
     @classmethod
-    def from_dict(cls, name: str, body: dict[str, Any]) -> "Test":
+    def validate_expect(cls, v: Expect, values: dict) -> Expect:
+        """Validate and initialize expect with test mode.
+
+        Args:
+            v: The expect instance
+            values: Other field values
+
+        Returns:
+            Expect: The validated expect instance
+        """
+        mode = values.get("mode")
+        if mode is None:
+            return v
+
+        # if expect is a dictionary, create a new Expect instance
+        if isinstance(v, dict):
+            return Expect(mode=mode, **v)
+
+        # if expect is already an Expect instance, update its mode
+        v.mode = mode
+        return v
+
+    @classmethod
+    def from_dict(cls, body: dict[str, Any]) -> "Test":
         """Create a Test instance from a dictionary.
 
         This method is used to create a Test instance from the YAML data structure
@@ -55,6 +92,10 @@ class Test(BaseModel):
             raise ValueError(f"Test body must be a dictionary, got {type(body)}")
 
         # Extract required fields
+        name = body.get("name")
+        if not name:
+            raise ValueError("Test name is required")
+
         mode = body.get("mode")
         if not mode:
             raise ValueError(f"Test mode is required for test '{name}'")
@@ -73,14 +114,21 @@ class Test(BaseModel):
         expect_config = body.get("expect", {})
         if not isinstance(expect_config, dict):
             raise ValueError(f"Expect configuration must be a dictionary, got {type(expect_config)}")
+        expect_config.update({"mode": TestMode(mode)})
 
-        expect = Expect(mode=TestMode(mode), **expect_config)
-
-        # Create and return Test instance
-        return cls(name=name, mode=TestMode(mode), desc=desc, needs=needs, runner=runner, expect=expect)
+        # Create and return Test instance with all fields
+        return cls(
+            name=name,
+            mode=TestMode(mode),
+            desc=desc,
+            needs=needs,
+            runner=runner,
+            expect=expect_config,  # Pass the dict directly, let __init__ handle it
+        )
 
     @validator("runner")
-    def validate_runner_type(self, v: BaseRunner, values: dict) -> BaseRunner:
+    @classmethod
+    def validate_runner_type(cls, v: BaseRunner, values: dict) -> BaseRunner:
         """Validate that runner type matches the test mode.
 
         Args:
@@ -116,4 +164,5 @@ class Test(BaseModel):
     class Config:
         """Pydantic model configuration"""
 
+        arbitrary_types_allowed = True
         extra = "forbid"

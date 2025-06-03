@@ -3,13 +3,13 @@ Test environment manager implementation
 """
 
 from octopus.core.container import Container
-from octopus.dsl.dsl_config import TestConfig
+from octopus.dsl.dsl_config import DslConfig
 
 
 class TestManager:
     """Manages test environment lifecycle"""
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: DslConfig):
         self.config = config
         self.services: dict[str, Container] = {}
 

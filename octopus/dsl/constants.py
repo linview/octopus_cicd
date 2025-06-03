@@ -13,6 +13,17 @@ class TestMode(str, Enum):
     GRPC = "grpc"
     PYTEST = "pytest"
     DOCKER = "docker"
+    NONE = "none"
+
+
+class HttpMethod(str, Enum):
+    """HTTP methods."""
+
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+    PATCH = "PATCH"
 
 
 class Keywords:

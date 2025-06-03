@@ -4,20 +4,23 @@ Test runner implementations.
 
 from typing import Any
 
-from octopus.dsl.constants import TEST_RUNNER_FIELDS, TestMode
+from pydantic import BaseModel, Field
+
+from octopus.dsl.constants import TEST_RUNNER_FIELDS, HttpMethod, TestMode
 from octopus.dsl.interface import RunnerInterface
 
 
-class BaseRunner(RunnerInterface):
+class BaseRunner(BaseModel, RunnerInterface):
     """Base class for all test runners."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, **data: Any):
         """Initialize the runner with configuration.
 
         Args:
-            config: Runner configuration dictionary
+            **data: Runner configuration data
         """
-        self._config = config
+        super().__init__(**data)
+        self._config = data
 
     def get_config(self) -> dict[str, Any]:
         """Get the runner's configuration.
@@ -39,19 +42,34 @@ class BaseRunner(RunnerInterface):
 class ShellRunner(BaseRunner):
     """Shell command test runner."""
 
+    cmd: list[str] = Field(description="Shell command")
+
+    def get_config(self) -> dict[str, Any]:
+        self._config.update({"cmd": self.cmd})
+        return self._config
+
     def get_command(self) -> str:
         """Get the shell command string.
 
         Returns:
             str: The shell command string
         """
-        if "cmd" not in self._config:
-            raise ValueError("Shell runner requires 'cmd' in config")
-        return " ".join(self._config["cmd"])
+        return " ".join(self.cmd)
 
 
 class HttpRunner(BaseRunner):
     """HTTP request test runner."""
+
+    header: str = Field(description="HTTP header")
+    method: HttpMethod = Field(default=HttpMethod.GET, description="HTTP method")
+    payload: str = Field(description="HTTP payload")
+    endpoint: str = Field(description="HTTP endpoint")
+
+    def get_config(self) -> dict[str, Any]:
+        self._config.update(
+            {"header": self.header, "method": self.method, "payload": self.payload, "endpoint": self.endpoint}
+        )
+        return self._config
 
     def get_command(self) -> str:
         """Get the HTTP request command string.
@@ -60,21 +78,29 @@ class HttpRunner(BaseRunner):
             str: The curl command string
         """
         required = TEST_RUNNER_FIELDS[TestMode.HTTP]
-        if not all(field in self._config for field in required):
+        if not all(field in self.get_config() for field in required):
             raise ValueError(f"HTTP runner requires fields: {required}")
 
         cmd = ["curl"]
-        if self._config.get("header"):
-            cmd.extend(["-H", self._config["header"]])
-        cmd.extend(["-X", self._config["method"]])
-        if self._config.get("payload"):
-            cmd.extend(["-d", self._config["payload"]])
-        cmd.append(self._config["endpoint"])
+        if self.header:
+            cmd.extend(["-H", self.header])
+        cmd.extend(["-X", self.method])
+        if self.payload:
+            cmd.extend(["-d", self.payload])
+        cmd.append(self.endpoint)
         return " ".join(cmd)
 
 
 class GrpcRunner(BaseRunner):
     """gRPC request test runner."""
+
+    function: str = Field(description="gRPC function")
+    endpoint: str = Field(description="gRPC endpoint")
+    payload: str = Field(description="gRPC payload")
+
+    def get_config(self) -> dict[str, Any]:
+        self._config.update({"function": self.function, "endpoint": self.endpoint, "payload": self.payload})
+        return self._config
 
     def get_command(self) -> str:
         """Get the gRPC request command string.
@@ -83,18 +109,25 @@ class GrpcRunner(BaseRunner):
             str: The grpcurl command string
         """
         required = TEST_RUNNER_FIELDS[TestMode.GRPC]
-        if not all(field in self._config for field in required):
+        if not all(field in self.get_config() for field in required):
             raise ValueError(f"gRPC runner requires fields: {required}")
 
         cmd = ["grpcurl"]
-        cmd.extend(["-d", self._config["payload"]])
-        cmd.extend(["-plaintext", self._config["endpoint"]])
-        cmd.append(self._config["function"])
+        cmd.extend(["-d", self.payload])
+        cmd.extend(["-plaintext", self.endpoint])
+        cmd.append(self.function)
         return " ".join(cmd)
 
 
 class PytestRunner(BaseRunner):
     """Pytest test runner."""
+
+    root_dir: str = Field(description="Pytest root directory")
+    test_args: list[str] = Field(description="Pytest test arguments")
+
+    def get_config(self) -> dict[str, Any]:
+        self._config.update({"root_dir": self.root_dir, "test_args": self.test_args})
+        return self._config
 
     def get_command(self) -> str:
         """Get the pytest command string.
@@ -103,18 +136,24 @@ class PytestRunner(BaseRunner):
             str: The pytest command string
         """
         required = TEST_RUNNER_FIELDS[TestMode.PYTEST]
-        if not all(field in self._config for field in required):
+        if not all(field in self.get_config() for field in required):
             raise ValueError(f"Pytest runner requires fields: {required}")
 
         cmd = ["pytest"]
-        cmd.extend(["--rootdir", self._config["root_dir"]])
-        if self._config.get("test_args"):
-            cmd.extend(self._config["test_args"])
+        cmd.extend(["--rootdir", self.root_dir])
+        if self.test_args:
+            cmd.extend(self.test_args)
         return " ".join(cmd)
 
 
 class DockerRunner(BaseRunner):
     """Docker command test runner."""
+
+    cmd: list[str] = Field(description="Docker command")
+
+    def get_config(self) -> dict[str, Any]:
+        self._config.update({"cmd": self.cmd})
+        return self._config
 
     def get_command(self) -> str:
         """Get the docker command string.
@@ -122,9 +161,9 @@ class DockerRunner(BaseRunner):
         Returns:
             str: The docker command string
         """
-        if "cmd" not in self._config:
+        if "cmd" not in self.get_config():
             raise ValueError("Docker runner requires 'cmd' in config")
-        return "docker exec " + " ".join(self._config["cmd"])
+        return "docker exec " + " ".join(self.cmd)
 
 
 def create_runner(mode: TestMode, config: dict[str, Any]) -> RunnerInterface:
@@ -151,4 +190,4 @@ def create_runner(mode: TestMode, config: dict[str, Any]) -> RunnerInterface:
     if mode not in runners:
         raise ValueError(f"Unsupported test mode: {mode}")
 
-    return runners[mode](config)
+    return runners[mode](**config)
