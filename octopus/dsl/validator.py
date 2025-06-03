@@ -1,7 +1,7 @@
-from octopus.dsl.config import TestConfig
+from octopus.dsl.dsl_config import TestConfig
 
 
-class ConfigValidator:
+class DslConfigValidator:
     """DSL Config validator"""
 
     def validate(self, config: TestConfig) -> bool:

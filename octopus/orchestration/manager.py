@@ -3,7 +3,7 @@ Test environment manager implementation
 """
 
 from octopus.core.container import Container
-from octopus.dsl.config import TestConfig
+from octopus.dsl.dsl_config import TestConfig
 
 
 class TestManager:

@@ -4,7 +4,7 @@ DSL parser implementation
 
 from typing import Any
 
-from octopus.dsl.config import TestConfig
+from octopus.dsl.dsl_config import TestConfig
 
 
 class ConfigParser:

@@ -1,4 +1,4 @@
-from octopus.dsl.config import TestConfig
+from octopus.dsl.dsl_config import TestConfig
 from octopus.orchestration.manager import TestManager
 
 
