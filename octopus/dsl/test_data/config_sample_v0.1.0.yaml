@@ -1,6 +1,6 @@
 version: 0.1.0
 name: config_sample
-description: Sample config DSL for v0.1.0
+desc: Sample config DSL for v0.1.0
 
 inputs:
   - service_name: service1
@@ -10,6 +10,7 @@ inputs:
 
 services:
   service_simple:
+    desc: "simple service verify container start"
     image: nginx:latest
     # if no '--name' in args, the container name will be the service name:w
     args:
@@ -24,6 +25,7 @@ services:
     vols:
       - ~/data:/data
   $service_name:      # reserved kw instance w/ lazy-var
+    desc: "service verify lazy-var in service name, envs, ports, vols; 'depends_on' kw"
     # serivce dependency kw: service_A depends_on service_B; service_A, service_B must be valid
     depends_on:
       - service2
@@ -38,6 +40,7 @@ services:
     vols:
       - ~/data:/data
   service2:
+    desc: "service verify 'trigger' kw"
     trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
     image: nginx:latest
     args:
@@ -46,32 +49,34 @@ services:
     vols: []
     ports:
       - 80:80
-test_container:
-  # container include test_cases, it can be triggered by test_cases
-  depends_on: [ service_simple ]
-  image: test_image:latest
-  args: []
-  ports:
-    - 80:80
-  envs:
-    - ENV=test
-    - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
-  vols: []
+  test_container:
+    desc: "test container verify 'needs', 'depends_on' kw "
+    # container include test_cases, it can be triggered by test_cases
+    depends_on: [ service_simple ]
+    image: test_image:latest
+    args: []
+    ports:
+      - 80:80
+    envs:
+      - ENV=test
+      - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
+    vols: []
 
 tests:
   test_shell:
-    description: "test in shell cmd"
+    # default test name is the test case name, e.g. test_shell, test_http, test_pytest, test_docker, test_grpc
+    desc: "test in shell cmd"
+    mode: shell
     runner:
-      mode: shell
       cmd: [ "echo", "'Hello, World!'" ]
     expect:
       exit_code: 0
       stdout: "Hello, World!"
       stderr: ""
   test_http:
-    description: "test via http client"
+    desc: "test via http client"
+    mode: http
     runner:
-      mode: http
       header: ""
       method: "POST"
       payload: "{\"greeting\": \"Hello, World!\"}"
@@ -82,20 +87,20 @@ tests:
   test_pytest:
     # test running w/ pytest cli, e.g. pytest --rootdir=<root_dir> <args>.
     # <root_dir> is the root directory of the project, <args> is the arguments for pytest.
-    description: "test run by pytest cli"
+    desc: "test run by pytest cli"
+    mode: pytest
     runner:
-      mode: pytest
       root_dir: ./octopus/tests
-      args: []
+      test_args: []
     expect:
       # pytest exit_code: https://docs.pytest.org/en/stable/reference/reference.html#pytest.ExitCode
       exit_code: 0
   test_docker:
     # assume test case is running in docker container, e..g docker exec <container_id> <cmd>
     needs: [ test_container ]   # needs kw: test_docker will check service test_container is running
-    description: "test run in docker container"
+    desc: "test run in docker container"
+    mode: docker
     runner:
-      mode: docker
       cmd: ["echo", "Hello, World!"]
     expect:
       exit_code: 0
@@ -103,9 +108,9 @@ tests:
       stderr: ""
   test_grpc:
     # grpcurl -d '{"name": "World"}' -plaintext localhost:50051 hello.Greeter/SayHello
-    description: "test run by grpc client"
+    desc: "test run by grpc client"
+    mode: grpc
     runner:
-      mode: grpc
       function: "hello.Greeter/SayHello"
       endpoint: "localhost:50051"
       payload: '{"name": "World"}'

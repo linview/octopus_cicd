@@ -1,0 +1,57 @@
+"""
+Constants used in the DSL configuration.
+"""
+
+from enum import Enum
+
+
+class TestMode(str, Enum):
+    """Test execution modes."""
+
+    SHELL = "shell"
+    HTTP = "http"
+    GRPC = "grpc"
+    PYTEST = "pytest"
+    DOCKER = "docker"
+
+
+class Keywords:
+    """Reserved keywords in the DSL."""
+
+    # Service keywords
+    DEPENDS_ON = "depends_on"
+    TRIGGER = "trigger"
+    NEEDS = "needs"
+
+    # Test keywords
+    MODE = "mode"
+    RUNNER = "runner"
+    EXPECT = "expect"
+
+    # Common keywords
+    DESC = "desc"
+    NAME = "name"
+    IMAGE = "image"
+    ARGS = "args"
+    ENVS = "envs"
+    PORTS = "ports"
+    VOLS = "vols"
+
+
+# Required fields for each test mode
+TEST_RUNNER_FIELDS = {
+    TestMode.SHELL: ["cmd"],
+    TestMode.HTTP: ["header", "method", "payload", "endpoint"],
+    TestMode.GRPC: ["function", "endpoint", "payload"],
+    TestMode.PYTEST: ["root_dir", "test_args"],
+    TestMode.DOCKER: ["cmd"],
+}
+
+# Expected fields for each test mode
+TEST_EXPECT_FIELDS = {
+    TestMode.SHELL: ["exit_code", "stdout", "stderr"],
+    TestMode.HTTP: ["status_code", "response"],
+    TestMode.GRPC: ["exit_code", "response"],
+    TestMode.PYTEST: ["exit_code"],
+    TestMode.DOCKER: ["exit_code", "stdout", "stderr"],
+}

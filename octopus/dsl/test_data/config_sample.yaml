@@ -1,6 +1,6 @@
 version: 1.0.0
 name: config_sample
-description: Sample config DSL
+desc: Sample config DSL
 
 inputs:
   - servic_name: service1
