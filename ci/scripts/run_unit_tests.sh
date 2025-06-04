@@ -15,9 +15,34 @@ TEST_DIRS=(
 # Install dependencies
 install_dependencies() {
     echo "Installing dependencies..."
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-    pip install -r requirements-dev.txt
+
+    # Check if running in virtual environment
+    if [ -z "$VIRTUAL_ENV" ]; then
+        echo "Not running in virtual environment, creating one..."
+
+        # Check if uv is installed
+        if ! command -v uv &> /dev/null; then
+            echo "Installing uv..."
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.cargo/bin:$PATH"
+        fi
+
+        # Create virtual environment if it doesn't exist
+        if [ ! -d ".venv" ]; then
+            echo "Creating virtual environment..."
+            uv venv .venv
+        fi
+
+        # Activate virtual environment
+        echo "Activating virtual environment..."
+        source .venv/bin/activate
+    else
+        echo "Running in virtual environment: $VIRTUAL_ENV"
+    fi
+
+    # Install dependencies using uv
+    echo "Installing dependencies with uv..."
+    uv sync
 }
 
 # Run tests for a single directory

@@ -4,7 +4,7 @@ Service configuration models.
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DslService(BaseModel):
@@ -12,6 +12,8 @@ class DslService(BaseModel):
 
     This model represents the configuration of a service.
     """
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     name: str = Field(description="Service name")
     desc: str = Field(description="Service description")
@@ -42,8 +44,3 @@ class DslService(BaseModel):
             body: Dictionary containing service configuration
         """
         return cls(**body)
-
-    class Config:
-        """Pydantic model configuration"""
-
-        extra = "forbid"

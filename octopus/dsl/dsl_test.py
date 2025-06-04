@@ -5,7 +5,7 @@ Test configuration models.
 from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from octopus.dsl.checker import Expect
 from octopus.dsl.constants import TestMode
@@ -25,6 +25,8 @@ class DslTest(BaseModel):
 
     This model represents the configuration of a test.
     """
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     name: str = Field(description="Test name")
     desc: str = Field(description="Test description")
@@ -173,9 +175,3 @@ class DslTest(BaseModel):
             )
 
         return v
-
-    class Config:
-        """Pydantic model configuration"""
-
-        arbitrary_types_allowed = True
-        extra = "forbid"
