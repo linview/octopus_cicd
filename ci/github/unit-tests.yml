@@ -1,6 +1,12 @@
 name: Unit Tests
 
 on:
+  workflow_call:
+    inputs:
+      python-versions:
+        description: 'Python versions to test against'
+        type: string
+        default: '[3.9, 3.10, 3.11, 3.12]'
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [ main ]
@@ -10,7 +16,7 @@ on:
 runs-on: self-hosted, ali.ecs
 strategy:
   matrix:
-    python-version: [3.9, 3.10, 3.11, 3.12]
+    python-version: ${{ fromJson(inputs.python-versions) }}
 
 steps:
 - uses: actions/checkout@v4
