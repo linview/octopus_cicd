@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'octopus/**'
+      - 'tests/**'
+      - 'ci/**'
+      - '.github/workflows/**'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+
+jobs:
+  unit-tests:
+    uses: ../../ci/github/unit-tests.yml
