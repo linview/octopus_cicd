@@ -13,4 +13,4 @@ on:
 
 jobs:
   unit-tests:
-    uses: unit-tests.yml@feat-dsl-config
+    uses: ./.github/workflows/unit-tests.yml@feat-dsl-config
