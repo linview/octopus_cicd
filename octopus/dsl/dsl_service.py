@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class Service(BaseModel):
+class DslService(BaseModel):
     """Service configuration.
 
     This model represents the configuration of a service.
@@ -35,7 +35,7 @@ class Service(BaseModel):
         self._desc = data.get("desc", "")
 
     @classmethod
-    def from_dict(cls, body: dict[str, Any]) -> "Service":
+    def from_dict(cls, body: dict[str, Any]) -> "DslService":
         """Create a Service instance from a dictionary.
 
         Args:

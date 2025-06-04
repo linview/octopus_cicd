@@ -8,8 +8,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
-from octopus.dsl.service import Service
-from octopus.dsl.test import Test
+from octopus.dsl.dsl_service import DslService
+from octopus.dsl.dsl_test import DslTest
 
 
 class Variable(BaseModel):
@@ -37,8 +37,8 @@ class DslConfig(BaseModel):
     name: str = Field(description="Configuration name")
     desc: str = Field(description="Configuration description")
     inputs: list[Variable] = Field(default_factory=list, description="List of input variables")
-    services: list[Service] = Field(default_factory=list, description="List of service configurations")
-    tests: list[Test] = Field(default_factory=list, description="List of test case configurations")
+    services: list[DslService] = Field(default_factory=list, description="List of service configurations")
+    tests: list[DslTest] = Field(default_factory=list, description="List of test case configurations")
 
     class Config:
         """Pydantic model configuration"""
@@ -64,7 +64,7 @@ class DslConfig(BaseModel):
         return inputs
 
     @staticmethod
-    def _transform_tests(tests_data: list) -> list[Test]:
+    def _transform_tests(tests_data: list) -> list[DslTest]:
         """Transform test data to Test objects.
 
         Args:
@@ -81,11 +81,11 @@ class DslConfig(BaseModel):
             if isinstance(test_data, dict):
                 if test_data.get("name", None) is None:
                     raise ValueError("Test name is required")
-                tests.append(Test.from_dict(test_data))
+                tests.append(DslTest.from_dict(test_data))
         return tests
 
     @staticmethod
-    def _transform_services(services_data: list) -> list[Service]:
+    def _transform_services(services_data: list) -> list[DslService]:
         """Transform service data to Service objects.
 
         Args:
@@ -102,7 +102,7 @@ class DslConfig(BaseModel):
             if isinstance(service_data, dict):
                 if service_data.get("name", None) is None:
                     raise ValueError("Service name is required")
-                services.append(Service.from_dict(service_data))
+                services.append(DslService.from_dict(service_data))
         return services
 
     @classmethod

@@ -20,7 +20,7 @@ from octopus.dsl.runner import (
 )
 
 
-class Test(BaseModel):
+class DslTest(BaseModel):
     """Test configuration.
 
     This model represents the configuration of a test.
@@ -81,7 +81,7 @@ class Test(BaseModel):
         return v
 
     @classmethod
-    def from_dict(cls, body: dict[str, Any]) -> "Test":
+    def from_dict(cls, body: dict[str, Any]) -> "DslTest":
         """Create a Test instance from a dictionary.
 
         This method is used to create a Test instance from the YAML data structure
