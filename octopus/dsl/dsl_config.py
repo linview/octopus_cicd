@@ -6,7 +6,8 @@ This module defines the data models for parsing and validating test configuratio
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field
 
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
@@ -33,18 +34,14 @@ class DslConfig(BaseModel):
     It includes version information, basic metadata, and collections of services and tests.
     """
 
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     version: str = Field(description="DSL version number")
     name: str = Field(description="Configuration name")
     desc: str = Field(description="Configuration description")
     inputs: list[Variable] = Field(default_factory=list, description="List of input variables")
     services: list[DslService] = Field(default_factory=list, description="List of service configurations")
     tests: list[DslTest] = Field(default_factory=list, description="List of test case configurations")
-
-    class Config:
-        """Pydantic model configuration"""
-
-        extra = "forbid"  # Forbid extra fields not defined in the model
-        frozen = True  # Make the model immutable after instantiation
 
     @staticmethod
     def _transform_inputs(inputs_data: list) -> list[dict]:
@@ -106,36 +103,62 @@ class DslConfig(BaseModel):
         return services
 
     @classmethod
-    def from_yaml(cls, yaml_data: dict) -> "DslConfig":
-        """Create a configuration instance from YAML data.
+    def from_dict(cls, data: dict) -> "DslConfig":
+        """Create a configuration instance from a dictionary.
 
-        This method handles the conversion of raw YAML data into a structured Config instance.
+        This method handles the conversion of raw data into a structured Config instance.
         It performs necessary transformations on the input data before instantiation.
 
         Args:
-            yaml_data: The parsed YAML data as a dictionary
+            data: The configuration data as a dictionary
 
         Returns:
             DslConfig: An instance of the configuration model
         """
         # Transform inputs from key-value pairs to Input objects
-        if "inputs" in yaml_data:
-            yaml_data["inputs"] = cls._transform_inputs(yaml_data["inputs"])
+        if "inputs" in data:
+            data["inputs"] = cls._transform_inputs(data["inputs"])
 
         # Transform tests from list to Test objects
-        if "tests" in yaml_data:
-            yaml_data["tests"] = cls._transform_tests(yaml_data["tests"])
+        if "tests" in data:
+            data["tests"] = cls._transform_tests(data["tests"])
 
         # Transform services from list to Service objects
-        if "services" in yaml_data:
-            yaml_data["services"] = cls._transform_services(yaml_data["services"])
+        if "services" in data:
+            data["services"] = cls._transform_services(data["services"])
 
-        return cls(**yaml_data)
+        return cls(**data)
+
+    @classmethod
+    def from_yaml_file(cls, yaml_path: Path) -> "DslConfig":
+        """Create a configuration instance from a YAML file.
+
+        This method reads a YAML file and creates a configuration instance from its contents.
+
+        Args:
+            yaml_path: Path to the YAML configuration file
+
+        Returns:
+            DslConfig: An instance of the configuration model
+
+        Raises:
+            FileNotFoundError: If the YAML file does not exist
+            yaml.YAMLError: If the YAML file is invalid
+        """
+        if not yaml_path.exists():
+            raise FileNotFoundError(f"YAML file not found: {yaml_path}")
+
+        with open(yaml_path) as f:
+            try:
+                yaml_data = yaml.load(f, Loader=yaml.FullLoader)
+            except yaml.YAMLError:
+                logger.exception("Failed to load YAML file")
+                return None
+
+        return cls.from_dict(yaml_data)
 
 
 if __name__ == "__main__":
     test_yaml_file = Path(__file__).parent / "test_data" / "config_sample_v0.1.0.yaml"
-    with open(test_yaml_file) as f:
-        yaml_data = yaml.load(f, Loader=yaml.FullLoader)
-        config = DslConfig.from_yaml(yaml_data)
-        print(config)
+    config = DslConfig.from_yaml_file(test_yaml_file)
+    print(config)

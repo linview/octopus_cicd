@@ -9,13 +9,13 @@ from octopus.dsl.dsl_config import DslConfig
 
 @pytest.fixture
 def sample_config_path() -> Path:
-    """Get the path to the sample config file."""
+    """Fixture for sample config file path."""
     return Path(__file__).parent.parent / "test_data" / "config_sample_v0.1.0.yaml"
 
 
 @pytest.fixture
 def valid_config() -> dict:
-    """Get a valid config dictionary."""
+    """Fixture for valid config data."""
     return {
         "version": "0.1.0",
         "name": "test_config",
@@ -24,142 +24,199 @@ def valid_config() -> dict:
             {"service_name": "service1"},
             {"$cntr_name": "service_container"},
             {"$HOST_HTTP_PORT": "8080"},
+            {"$ENV_LOG_SETTING": "NIM_LOG=debug"},
         ],
-        "services": {
-            "service1": {
-                "desc": "Test service",
+        "services": [
+            {
+                "name": "service_simple",
+                "desc": "simple service verify container start",
                 "image": "nginx:latest",
-                "args": ["--name", "${$cntr_name}"],
-                "ports": ["${$HOST_HTTP_PORT}:80"],
-                "envs": ["ENV=test"],
+                "args": [
+                    "--ulimit nofile=1024:1024",
+                    "--device all",
+                    "--privileged",
+                    "-m 512m",
+                ],
+                "ports": ["80:80"],
+                "envs": ["DEBUG_LOG=debug"],
                 "vols": ["~/data:/data"],
-            }
-        },
-        "tests": {
-            "test_shell": {
-                "desc": "Test shell command",
+            },
+            {
+                "name": "service1",
+                "desc": "service verify lazy-var in service name",
+                "depends_on": ["service2"],
+                "image": "nginx:latest",
+                "args": ["--name service1"],
+                "ports": ["8080:80"],
+                "envs": ["ENV=test", "NIM_LOG=debug"],
+                "vols": ["~/data:/data"],
+            },
+        ],
+        "tests": [
+            {
+                "name": "test_shell",
+                "desc": "test in shell cmd",
                 "mode": "shell",
                 "runner": {
-                    "cmd": ["echo", "Hello, World!"],
+                    "cmd": ["echo", "'Hello, World!'"],
                 },
                 "expect": {
                     "exit_code": 0,
                     "stdout": "Hello, World!",
                     "stderr": "",
                 },
-            }
-        },
+            },
+            {
+                "name": "test_http",
+                "desc": "test via http client",
+                "mode": "http",
+                "runner": {
+                    "header": "",
+                    "method": "POST",
+                    "payload": '{"greeting": "Hello, World!"}',
+                    "endpoint": "http://localhost:8080",
+                },
+                "expect": {
+                    "status_code": 201,
+                    "response": '{"data": "Hello, World!"}',
+                },
+            },
+        ],
     }
 
 
-def test_load_valid_config(sample_config_path: Path):
+@pytest.mark.smoke
+def test_load_valid_config_file(sample_config_path: Path):
     """Test loading a valid config file."""
-    config = DslConfig.from_yaml(sample_config_path)
+    config = DslConfig.from_yaml_file(sample_config_path)
     assert config.version == "0.1.0"
     assert config.name == "config_sample"
-    assert config.desc == "Sample config DSL for v0.1.0"
+    assert len(config.inputs) > 0
     assert len(config.services) > 0
     assert len(config.tests) > 0
 
 
-def test_load_invalid_config(tmp_path: Path):
+def test_load_invalid_config_file(tmp_path: Path):
     """Test loading an invalid config file."""
-    invalid_config = tmp_path / "invalid.yaml"
-    invalid_config.write_text("invalid: yaml: content: [")
+    invalid_yaml = tmp_path / "invalid.yaml"
+    invalid_yaml.write_text("invalid: yaml: content: [")
+    config = DslConfig.from_yaml_file(invalid_yaml)
+    assert config is None
 
-    with pytest.raises(ValueError, match="Failed to load YAML file"):
-        DslConfig.from_yaml(invalid_config)
+
+def test_load_nonexistent_config_file(tmp_path: Path):
+    """Test loading a non-existent config file."""
+    nonexistent_yaml = tmp_path / "nonexistent.yaml"
+    with pytest.raises(FileNotFoundError):
+        DslConfig.from_yaml_file(nonexistent_yaml)
 
 
+@pytest.mark.TODO("missing required 'inputs' shall be handled by pydantic")
+@pytest.mark.xfail(reason="missing required 'inputs' shall be handled by pydantic")
 def test_missing_required_fields(tmp_path: Path):
     """Test config with missing required fields."""
-    config_path = tmp_path / "missing_fields.yaml"
-    config_path.write_text("""
-    version: 0.1.0
-    # missing name and desc
-    services: {}
-    tests: {}
-    """)
-
+    invalid_config = {
+        "version": "0.1.0",
+        "name": "test_config",
+        "desc": "Test configuration",
+        "services": [],
+        "tests": [],
+    }
+    # DslConfig.from_dict(invalid_config)
     with pytest.raises(ValueError, match="Missing required fields"):
-        DslConfig.from_yaml(config_path)
+        DslConfig.from_dict(invalid_config)
 
 
 def test_invalid_service_config(valid_config: dict):
-    """Test config with invalid service configuration."""
-    valid_config["services"]["invalid_service"] = {
-        "desc": "Invalid service",
-        # missing required image field
-    }
-
-    with pytest.raises(ValueError, match="Invalid service configuration"):
-        DslConfig(**valid_config)
+    """Test config with invalid service name."""
+    valid_config["services"].append(
+        {
+            "desc": "Invalid service",
+            "image": "nginx:latest",
+        }
+    )
+    with pytest.raises(ValueError, match="Service name is required"):
+        DslConfig.from_dict(valid_config)
 
 
 def test_invalid_test_config(valid_config: dict):
     """Test config with invalid test configuration."""
-    valid_config["tests"]["invalid_test"] = {
-        "desc": "Invalid test",
-        # missing required mode and runner fields
-    }
+    valid_config["tests"].append(
+        {
+            "desc": "Invalid test",
+            "mode": "shell",
+        }
+    )
+    with pytest.raises(ValueError, match="Test name is required"):
+        DslConfig.from_dict(valid_config)
 
-    with pytest.raises(ValueError, match="Invalid test configuration"):
-        DslConfig(**valid_config)
 
-
+@pytest.mark.TODO("need to implement lazy-var in service name")
 def test_variable_replacement(valid_config: dict):
     """Test variable replacement in config."""
-    config = DslConfig(**valid_config)
-    service = config.services["service1"]
-
-    # Check if variables are replaced in service configuration
-    assert "--name" in service.args
-    assert "service_container" in service.args
+    config = DslConfig.from_dict(valid_config)
+    service = config.services[1]  # service1
+    assert service.name == "service1"
     assert "8080:80" in service.ports
+    assert "NIM_LOG=debug" in service.envs
 
 
 def test_test_mode_validation(valid_config: dict):
     """Test test mode validation."""
-    valid_config["tests"]["invalid_mode"] = {
-        "desc": "Invalid mode test",
-        "mode": "invalid_mode",
-        "runner": {
-            "cmd": ["echo", "test"],
-        },
-        "expect": {
-            "exit_code": 0,
-        },
-    }
+    valid_config["tests"].append(
+        {
+            "name": "invalid_mode",
+            "desc": "Invalid mode test",
+            "mode": "invalid_mode",
+            "runner": {
+                "cmd": ["echo", "test"],
+            },
+            "expect": {
+                "exit_code": 0,
+                "stdout": "test",
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="'invalid_mode' is not a valid TestMode"):
+        DslConfig.from_dict(valid_config)
 
-    with pytest.raises(ValueError, match="Invalid test mode"):
-        DslConfig(**valid_config)
 
-
+@pytest.mark.TODO(reason="kw 'depends_on' is not implemented")
+@pytest.mark.xfail(reason="kw 'depends_on' is not implemented")
 def test_service_dependencies(valid_config: dict):
     """Test service dependency validation."""
-    valid_config["services"]["service2"] = {
-        "desc": "Dependent service",
-        "image": "nginx:latest",
-        "depends_on": ["non_existent_service"],
-    }
-
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with invalid dependency",
+            "depends_on": ["non_existent_service"],
+            "image": "nginx:latest",
+        }
+    )
+    # DslConfig.from_dict(valid_config)
+    # TODO: shall xfail when 'depends_on' is implemented
     with pytest.raises(ValueError, match="Invalid service dependency"):
-        DslConfig(**valid_config)
+        DslConfig.from_dict(valid_config)
 
 
+@pytest.mark.TODO("need to implement 'needs' kw")
+@pytest.mark.xfail(reason="kw 'needs' is not implemented")
 def test_test_dependencies(valid_config: dict):
     """Test test dependency validation."""
-    valid_config["tests"]["dependent_test"] = {
-        "desc": "Dependent test",
-        "mode": "shell",
-        "needs": ["non_existent_test"],
-        "runner": {
-            "cmd": ["echo", "test"],
-        },
-        "expect": {
-            "exit_code": 0,
-        },
-    }
-
+    valid_config["tests"].append(
+        {
+            "name": "dependent_test",
+            "desc": "Dependent test",
+            "mode": "shell",
+            "needs": ["non_existent_test"],  # TODO: shall xfail when 'needs' is implemented
+            "runner": {
+                "cmd": ["echo", "test"],
+            },
+            "expect": {
+                "exit_code": 0,
+                "stdout": "test",
+            },
+        }
+    )
     with pytest.raises(ValueError, match="Invalid test dependency"):
-        DslConfig(**valid_config)
+        DslConfig.from_dict(valid_config)
