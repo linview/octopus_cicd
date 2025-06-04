@@ -2,12 +2,17 @@
 Test runner implementations.
 """
 
+import sys
 from typing import Any
 
-from pydantic import BaseModel, Field
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field
 
 from octopus.dsl.constants import TEST_RUNNER_FIELDS, HttpMethod, TestMode
 from octopus.dsl.interface import RunnerInterface
+
+logger.remove()
+logger.add(sys.stdout, level="DEBUG")
 
 
 class BaseRunner(BaseModel, RunnerInterface):
@@ -42,7 +47,13 @@ class BaseRunner(BaseModel, RunnerInterface):
 class ShellRunner(BaseRunner):
     """Shell command test runner."""
 
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     cmd: list[str] = Field(description="Shell command")
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        self._config = self.model_dump()
 
     def get_config(self) -> dict[str, Any]:
         self._config.update({"cmd": self.cmd})
@@ -60,10 +71,16 @@ class ShellRunner(BaseRunner):
 class HttpRunner(BaseRunner):
     """HTTP request test runner."""
 
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
     header: str = Field(description="HTTP header")
     method: HttpMethod = Field(default=HttpMethod.GET, description="HTTP method")
-    payload: str = Field(description="HTTP payload")
+    payload: str | None = Field(default=None, description="HTTP payload")
     endpoint: str = Field(description="HTTP endpoint")
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        self._config = self.model_dump()
 
     def get_config(self) -> dict[str, Any]:
         self._config.update(
@@ -83,20 +100,27 @@ class HttpRunner(BaseRunner):
 
         cmd = ["curl"]
         if self.header:
-            cmd.extend(["-H", self.header])
+            cmd.extend(["-H", f"""'{self.header}'"""])
         cmd.extend(["-X", self.method])
-        if self.payload:
-            cmd.extend(["-d", self.payload])
-        cmd.append(self.endpoint)
+        if self.payload and self.method not in [HttpMethod.GET, HttpMethod.DELETE]:
+            cmd.extend(["-d", f"'{self.payload}'"])
+        cmd.append(f"'{self.endpoint}'")
         return " ".join(cmd)
 
 
 class GrpcRunner(BaseRunner):
     """gRPC request test runner."""
 
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    proto: str | None = Field(default=None, description="gRPC proto file")
     function: str = Field(description="gRPC function")
     endpoint: str = Field(description="gRPC endpoint")
     payload: str = Field(description="gRPC payload")
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        self._config = self.model_dump()
 
     def get_config(self) -> dict[str, Any]:
         self._config.update({"function": self.function, "endpoint": self.endpoint, "payload": self.payload})
@@ -113,7 +137,8 @@ class GrpcRunner(BaseRunner):
             raise ValueError(f"gRPC runner requires fields: {required}")
 
         cmd = ["grpcurl"]
-        cmd.extend(["-d", self.payload])
+        cmd.extend(["-proto", self.proto]) if self.proto else None
+        cmd.extend(["-d", f"'{self.payload}'"])
         cmd.extend(["-plaintext", self.endpoint])
         cmd.append(self.function)
         return " ".join(cmd)
@@ -122,8 +147,14 @@ class GrpcRunner(BaseRunner):
 class PytestRunner(BaseRunner):
     """Pytest test runner."""
 
-    root_dir: str = Field(description="Pytest root directory")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    root_dir: str | None = Field(default=None, description="Pytest root directory")
     test_args: list[str] = Field(description="Pytest test arguments")
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        self._config = self.model_dump()
 
     def get_config(self) -> dict[str, Any]:
         self._config.update({"root_dir": self.root_dir, "test_args": self.test_args})
@@ -140,7 +171,8 @@ class PytestRunner(BaseRunner):
             raise ValueError(f"Pytest runner requires fields: {required}")
 
         cmd = ["pytest"]
-        cmd.extend(["--rootdir", self.root_dir])
+        if self.root_dir:
+            cmd.extend(["--rootdir", self.root_dir])
         if self.test_args:
             cmd.extend(self.test_args)
         return " ".join(cmd)
@@ -149,10 +181,17 @@ class PytestRunner(BaseRunner):
 class DockerRunner(BaseRunner):
     """Docker command test runner."""
 
-    cmd: list[str] = Field(description="Docker command")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    cntr_name: str = Field(description="Docker container name to run command")
+    cmd: list[str] = Field(description="Execute command in docker container")
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        self._config = self.model_dump()
 
     def get_config(self) -> dict[str, Any]:
-        self._config.update({"cmd": self.cmd})
+        self._config.update({"cmd": self.cmd, "cntr_name": self.cntr_name})
         return self._config
 
     def get_command(self) -> str:
@@ -161,9 +200,11 @@ class DockerRunner(BaseRunner):
         Returns:
             str: The docker command string
         """
+        if "cntr_name" not in self.get_config():
+            raise ValueError("Docker runner requires 'cntr_name' in config")
         if "cmd" not in self.get_config():
             raise ValueError("Docker runner requires 'cmd' in config")
-        return "docker exec " + " ".join(self.cmd)
+        return "docker exec " + self.cntr_name + " " + " ".join(self.cmd)
 
 
 def create_runner(mode: TestMode, config: dict[str, Any]) -> RunnerInterface:

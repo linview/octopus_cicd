@@ -90,8 +90,8 @@ tests:
     desc: "test run by pytest cli"
     mode: pytest
     runner:
-      root_dir: ./octopus/tests
-      test_args: []
+      root_dir: ./octopus/dsl/ut
+      test_args: ["octopus/dsl/ut/test_runner.py", "-v", "-s", "-k", "test_docker_runner_"]
     expect:
       # pytest exit_code: https://docs.pytest.org/en/stable/reference/reference.html#pytest.ExitCode
       exit_code: 0
@@ -101,6 +101,7 @@ tests:
     desc: "test run in docker container"
     mode: docker
     runner:
+      cntr_name: "test_container"
       cmd: ["echo", "Hello, World!"]
     expect:
       exit_code: 0
@@ -111,6 +112,7 @@ tests:
     desc: "test run by grpc client"
     mode: grpc
     runner:
+      proto: "hello.proto"    # optional, needed if server doesn't support reflection.
       function: "hello.Greeter/SayHello"
       endpoint: "localhost:50051"
       payload: '{"name": "World"}'

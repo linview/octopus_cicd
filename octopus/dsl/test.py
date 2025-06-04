@@ -4,7 +4,8 @@ Test configuration models.
 
 from typing import Any
 
-from pydantic import BaseModel, Field, validator
+from loguru import logger
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from octopus.dsl.checker import Expect
 from octopus.dsl.constants import TestMode
@@ -47,19 +48,27 @@ class Test(BaseModel):
         if "expect" in data and isinstance(data["expect"], dict) and not isinstance(data["expect"], Expect):
             self.expect = Expect(**data["expect"])
 
-    @validator("expect")
+    @field_validator("expect")
     @classmethod
-    def validate_expect(cls, v: Expect, values: dict) -> Expect:
+    def validate_expect(cls, v: Expect, info: ValidationInfo) -> Expect:
         """Validate and initialize expect with test mode.
 
         Args:
             v: The expect instance
-            values: Other field values
+            info: Validation info containing other field values
 
         Returns:
             Expect: The validated expect instance
         """
-        mode = values.get("mode")
+        # Get current field name
+        field_name = info.field_name  # Should be "expect"
+        logger.debug(f"field_name: {field_name}")
+
+        # Get all field values
+        all_data = info.data  # Dictionary containing all fields
+
+        # Get specific field value
+        mode = all_data.get("mode")
         if mode is None:
             return v
 
@@ -126,14 +135,14 @@ class Test(BaseModel):
             expect=expect_config,  # Pass the dict directly, let __init__ handle it
         )
 
-    @validator("runner")
+    @field_validator("runner")
     @classmethod
-    def validate_runner_type(cls, v: BaseRunner, values: dict) -> BaseRunner:
+    def validate_runner_type(cls, v: BaseRunner, info: ValidationInfo) -> BaseRunner:
         """Validate that runner type matches the test mode.
 
         Args:
             v: The runner instance
-            values: Other field values
+            info: Validation info containing other field values
 
         Returns:
             BaseRunner: The validated runner instance
@@ -141,7 +150,11 @@ class Test(BaseModel):
         Raises:
             ValueError: If runner type doesn't match the mode
         """
-        mode = values.get("mode")
+        # Get all field values
+        all_data = info.data
+
+        # Get specific field value
+        mode = all_data.get("mode")
         if mode is None:
             return v
 

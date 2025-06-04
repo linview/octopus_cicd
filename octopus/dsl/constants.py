@@ -65,4 +65,5 @@ TEST_EXPECT_FIELDS = {
     TestMode.GRPC: ["exit_code", "response"],
     TestMode.PYTEST: ["exit_code"],
     TestMode.DOCKER: ["exit_code", "stdout", "stderr"],
+    #    TestMode.NONE: [],     # will fail if test mode is not specified
 }

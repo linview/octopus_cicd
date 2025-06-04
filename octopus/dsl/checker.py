@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from octopus.dsl.constants import TEST_EXPECT_FIELDS, TestMode
 
@@ -8,7 +8,9 @@ from octopus.dsl.constants import TEST_EXPECT_FIELDS, TestMode
 class Expect(BaseModel):
     """Test expectations configuration."""
 
-    mode: TestMode = TestMode.NONE
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    mode: TestMode = Field(default=TestMode.NONE, description="Test mode")
     exit_code: int | None = Field(default=None, description="Exit code")
     stdout: str | None = Field(default=None, description="Standard output")
     stderr: str | None = Field(default=None, description="Standard error")
@@ -31,4 +33,4 @@ class Expect(BaseModel):
         required = TEST_EXPECT_FIELDS[self.mode]
         missing = [field for field in required if getattr(self, field) is None]
         if missing:
-            raise ValueError(f"Missing required fields for {self._mode}: {missing}")
+            raise ValueError(f"Missing required fields for {self.mode}: {missing}")
