@@ -13,21 +13,20 @@ on:
   push:
     branches: [ main ]
 
-runs-on: self-hosted, ali.ecs
-strategy:
-  matrix:
-    python-version: ${{ fromJson(inputs.python-versions) }}
-
-steps:
-- uses: actions/checkout@v4
-
-- name: Set up Python ${{ matrix.python-version }}
-  uses: actions/setup-python@v5
-  with:
-    python-version: ${{ matrix.python-version }}
-    cache: 'pip'
-
-- name: Run unit tests
-  run: |
-    chmod +x ./ci/scripts/run_unit_tests.sh
-    ./ci/scripts/run_unit_tests.sh
+jobs:
+  unit-tests:
+    runs-on: self-hosted, ali.ecs
+    strategy:
+      matrix:
+        python-version: ${{ fromJson(inputs.python-versions) }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - name: Run unit tests
+      run: |
+        chmod +x ./ci/scripts/run_unit_tests.sh
+        ./ci/scripts/run_unit_tests.sh
