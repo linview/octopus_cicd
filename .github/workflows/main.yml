@@ -13,4 +13,4 @@ on:
 
 jobs:
   unit-tests:
-    uses: ../../ci/github/unit-tests.yml
+    uses: ../../ci/github/unit-tests.yml@feat-dsl-config
