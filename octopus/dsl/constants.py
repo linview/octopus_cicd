@@ -15,6 +15,14 @@ class TestMode(str, Enum):
     DOCKER = "docker"
     NONE = "none"
 
+    def __str__(self) -> str:
+        """Return the string representation of the test mode."""
+        return self.value
+
+    def __repr__(self) -> str:
+        """Return the string representation of the test mode."""
+        return self.value
+
 
 class HttpMethod(str, Enum):
     """HTTP methods."""

@@ -6,6 +6,7 @@ import pytest
 from loguru import logger
 from pydantic import ValidationError
 
+from octopus.dsl.checker import Expect
 from octopus.dsl.constants import HttpMethod, TestMode
 from octopus.dsl.dsl_test import DslTest
 from octopus.dsl.runner import (
@@ -352,3 +353,77 @@ def test_dsl_test_extra_fields():
             expect={"mode": TestMode.HTTP, "status_code": 200},
             extra_field="value",
         )
+
+
+def test_dsl_test_to_dict():
+    """Test to_dict method of DslTest class."""
+    # Create a test instance
+    test = DslTest(
+        name="test_shell",
+        desc="test in shell cmd",
+        mode=TestMode.SHELL,
+        runner={
+            "cmd": ["echo", "'Hello, World!'"],
+        },
+        expect={
+            "mode": TestMode.SHELL,
+            "exit_code": 0,
+            "stdout": "Hello, World!",
+            "stderr": "",
+        },
+    )
+
+    # Convert to dict
+    test_dict = test.to_dict()
+
+    # Verify that the result is a dictionary
+    assert isinstance(test_dict, dict)
+
+    # Verify that all fields are present and have correct values
+    assert test_dict["name"] == "test_shell"
+    assert test_dict["desc"] == "test in shell cmd"
+    assert test_dict["mode"] == TestMode.SHELL
+    assert test_dict["runner"] == {
+        "cmd": ["echo", "'Hello, World!'"],
+    }
+    assert test_dict["expect"] == {
+        "mode": TestMode.SHELL,
+        "exit_code": 0,
+        "stdout": "Hello, World!",
+        "stderr": "",
+    }
+
+    # Test with modified values
+    test.name = "new_name"
+    test.desc = "new_desc"
+    test.mode = TestMode.HTTP
+    test.runner = HttpRunner(
+        header="Content-Type: application/json",
+        method="POST",
+        payload='{"greeting": "Hello, World!"}',
+        endpoint="http://localhost:8080",
+    )
+    test.expect = Expect(
+        mode=TestMode.HTTP,
+        status_code=201,
+        response='{"data": "Hello, World!"}',
+    )
+
+    # Convert to dict again
+    test_dict = test.to_dict()
+
+    # Verify that the updated values are correctly represented in the dictionary
+    assert test_dict["name"] == "new_name"
+    assert test_dict["desc"] == "new_desc"
+    assert test_dict["mode"] == TestMode.HTTP
+    assert test_dict["runner"] == {
+        "header": "Content-Type: application/json",
+        "method": "POST",
+        "payload": '{"greeting": "Hello, World!"}',
+        "endpoint": "http://localhost:8080",
+    }
+    assert test_dict["expect"] == {
+        "mode": TestMode.HTTP,
+        "status_code": 201,
+        "response": '{"data": "Hello, World!"}',
+    }

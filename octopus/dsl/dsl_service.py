@@ -44,3 +44,7 @@ class DslService(BaseModel):
             body: Dictionary containing service configuration
         """
         return cls(**body)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the service instance to a dictionary."""
+        return {k: v for k, v in self.model_dump().items() if v is not None}

@@ -34,3 +34,11 @@ class Expect(BaseModel):
         missing = [field for field in required if getattr(self, field) is None]
         if missing:
             raise ValueError(f"Missing required fields for {self.mode}: {missing}")
+
+    def to_dict(self) -> dict[str, str]:
+        """Convert the expect instance to a dictionary."""
+        return {k: v for k, v in self.model_dump().items() if v is not None}
+
+    def __repr__(self) -> dict[str, str]:
+        """Return the string representation of the expect instance."""
+        return self.to_dict()

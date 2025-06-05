@@ -117,3 +117,91 @@ def test_dsl_service_extra_fields():
             image="nginx:latest",
             extra_field="value",
         )
+
+
+def test_dsl_service_to_dict_with_all_fields(valid_service_data):
+    """Test DslService.to_dict() with all fields set."""
+    service = DslService(**valid_service_data)
+    result = service.to_dict()
+
+    # Verify all fields are correctly included in the result
+    assert result == valid_service_data
+
+
+def test_dsl_service_to_dict_with_empty_lists():
+    """Test DslService.to_dict() with empty lists."""
+    service = DslService(
+        name="test",
+        desc="test",
+        image="nginx:latest",
+        args=[],
+        envs=[],
+        ports=[],
+        vols=[],
+        depends_on=[],
+        trigger=[],
+    )
+    result = service.to_dict()
+
+    # Verify empty list fields are included in the result
+    assert result == {
+        "name": "test",
+        "desc": "test",
+        "image": "nginx:latest",
+        "args": [],
+        "envs": [],
+        "ports": [],
+        "vols": [],
+        "depends_on": [],
+        "trigger": [],
+    }
+
+
+def test_dsl_service_to_dict_with_none_values():
+    """Test DslService.to_dict() with None values."""
+    service = DslService(
+        name="test",
+        desc="test",
+        image="nginx:latest",
+        args=None,
+        envs=None,
+        ports=None,
+        vols=None,
+        depends_on=None,
+        trigger=None,
+    )
+    result = service.to_dict()
+
+    # Verify fields with None values are excluded from the result
+    assert result == {
+        "name": "test",
+        "desc": "test",
+        "image": "nginx:latest",
+    }
+
+
+def test_dsl_service_to_dict_with_mixed_values():
+    """Test DslService.to_dict() with mixed values."""
+    service = DslService(
+        name="test",
+        desc="test",
+        image="nginx:latest",
+        args=["--port", "8080"],
+        envs=None,
+        ports=["8080:8080"],
+        vols=[],
+        depends_on=None,
+        trigger=["test_a"],
+    )
+    result = service.to_dict()
+
+    # Verify mixed value handling (some fields have values, some are None, some are empty lists)
+    assert result == {
+        "name": "test",
+        "desc": "test",
+        "image": "nginx:latest",
+        "args": ["--port", "8080"],
+        "ports": ["8080:8080"],
+        "vols": [],
+        "trigger": ["test_a"],
+    }

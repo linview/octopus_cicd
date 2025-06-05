@@ -102,3 +102,89 @@ def test_expect_docker_mode():
     assert expect.exit_code == 0
     assert expect.stdout == "container output"
     assert expect.stderr == ""
+
+
+def test_expect_to_dict_with_all_fields():
+    """Test Expect.to_dict() with all fields set."""
+    expect = Expect(
+        mode=TestMode.SHELL,
+        exit_code=0,
+        stdout="test output",
+        stderr="test error",
+        status_code=200,
+        response="test response",
+    )
+
+    result = expect.to_dict()
+    assert result == {
+        "mode": TestMode.SHELL,
+        "exit_code": 0,
+        "stdout": "test output",
+        "stderr": "test error",
+        "status_code": 200,
+        "response": "test response",
+    }
+
+
+def test_expect_to_dict_with_none_fields():
+    """Test Expect.to_dict() with some fields set to None."""
+    expect = Expect(
+        mode=TestMode.SHELL,
+        exit_code=0,
+        stdout="test output",
+        stderr="",
+        status_code=None,
+        response=None,
+    )
+
+    result = expect.to_dict()
+    assert result == {
+        "mode": TestMode.SHELL,
+        "exit_code": 0,
+        "stdout": "test output",
+        "stderr": "",
+    }
+
+
+def test_expect_to_dict_with_different_modes():
+    """Test Expect.to_dict() with different test modes."""
+    # Test HTTP mode
+    http_expect = Expect(
+        mode=TestMode.HTTP,
+        status_code=200,
+        response="OK",
+    )
+    http_result = http_expect.to_dict()
+    assert http_result == {
+        "mode": TestMode.HTTP,
+        "status_code": 200,
+        "response": "OK",
+    }
+
+    # Test gRPC mode
+    grpc_expect = Expect(
+        mode=TestMode.GRPC,
+        exit_code=0,
+        response="OK",
+    )
+    grpc_result = grpc_expect.to_dict()
+    assert grpc_result == {
+        "mode": TestMode.GRPC,
+        "exit_code": 0,
+        "response": "OK",
+    }
+
+    # Test Docker mode
+    docker_expect = Expect(
+        mode=TestMode.DOCKER,
+        exit_code=0,
+        stdout="container output",
+        stderr="",
+    )
+    docker_result = docker_expect.to_dict()
+    assert docker_result == {
+        "mode": TestMode.DOCKER,
+        "exit_code": 0,
+        "stdout": "container output",
+        "stderr": "",
+    }

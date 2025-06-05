@@ -187,3 +187,25 @@ class DslTest(BaseModel):
             )
 
         return v
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Convert the model to a dictionary.
+
+        This method overrides the default model_dump to ensure nested Expect
+        object uses its to_dict method.
+
+        Returns:
+            dict: The model as a dictionary
+        """
+        data = super().model_dump(**kwargs)
+        if "expect" in data and isinstance(self.expect, Expect):
+            data["expect"] = self.expect.to_dict()
+        return data
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the test instance to a dictionary.
+
+        Returns:
+            dict: The test instance as a dictionary
+        """
+        return {k: v for k, v in self.model_dump().items() if v is not None}
