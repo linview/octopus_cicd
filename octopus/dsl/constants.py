@@ -75,3 +75,5 @@ TEST_EXPECT_FIELDS = {
     TestMode.DOCKER: ["exit_code", "stdout", "stderr"],
     #    TestMode.NONE: [],     # will fail if test mode is not specified
 }
+
+SUPPORTED_VERSION = ["0.1.0"]

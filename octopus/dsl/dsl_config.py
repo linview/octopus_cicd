@@ -4,11 +4,13 @@ This module defines the data models for parsing and validating test configuratio
 """
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator
 
+from octopus.dsl.constants import SUPPORTED_VERSION
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
 
@@ -42,6 +44,70 @@ class DslConfig(BaseModel):
     inputs: list[Variable] = Field(default_factory=list, description="List of input variables")
     services: list[DslService] = Field(default_factory=list, description="List of service configurations")
     tests: list[DslTest] = Field(default_factory=list, description="List of test case configurations")
+
+    # Private fields for internal use
+    _services_dict: dict[str, DslService] = PrivateAttr(default_factory=dict)
+    _tests_dict: dict[str, DslTest] = PrivateAttr(default_factory=dict)
+
+    def __init__(self, **data: Any):
+        """Initialize configuration.
+
+        Args:
+            **data: Configuration data
+
+        Raises:
+            ValueError: If duplicate service or test names are found
+        """
+        super().__init__(**data)
+        # Initialize services mapping with duplicate check
+        self._services_dict = {}
+        for service in self.services:
+            if service.name in self._services_dict:
+                raise ValueError(f"Duplicate service name found: {service.name}")
+            self._services_dict[service.name] = service
+
+        # Initialize tests mapping with duplicate check
+        self._tests_dict = {}
+        for test in self.tests:
+            if test.name in self._tests_dict:
+                raise ValueError(f"Duplicate test name found: {test.name}")
+            self._tests_dict[test.name] = test
+
+    @field_validator("version")
+    @classmethod
+    def _validate_version(cls, v: str, info: ValidationInfo) -> str:
+        """Validate the version of the configuration."""
+        if v not in SUPPORTED_VERSION:
+            raise ValueError(f"Unsupported version: {v}")
+        return v
+
+    @field_validator("inputs")
+    @classmethod
+    def _validate_inputs(cls, v: list[Variable]) -> list[Variable]:
+        """Validate the inputs of the configuration."""
+        return v
+
+    def get_service_by_name(self, name: str) -> DslService | None:
+        """Get service by name.
+
+        Args:
+            name: Service name
+
+        Returns:
+            DslService | None: Service instance if found, None otherwise
+        """
+        return self._services_dict.get(name)
+
+    def get_test_by_name(self, name: str) -> DslTest | None:
+        """Get test by name.
+
+        Args:
+            name: Test name
+
+        Returns:
+            DslTest | None: Test instance if found, None otherwise
+        """
+        return self._tests_dict.get(name)
 
     @staticmethod
     def _transform_inputs(inputs_data: list) -> list[dict]:
@@ -156,6 +222,82 @@ class DslConfig(BaseModel):
                 return None
 
         return cls.from_dict(yaml_data)
+
+    def verify(self) -> bool:
+        """Verify the configuration."""
+        missing_deps, missing_triggers, missing_needs, missing_inputs = [], [], [], []
+        inputs_ok, inputs_err = self._verify_inputs()
+        if not inputs_ok:
+            missing_inputs.extend(inputs_err)
+        deps_ok, deps_err = self._verify_dependencies()
+        if not deps_ok:
+            missing_deps.extend(deps_err)
+        trig_ok, trig_err = self._verify_triggers()
+        if not trig_ok:
+            missing_triggers.extend(trig_err)
+        needs_ok, needs_err = self._verify_needs()
+        if not needs_ok:
+            missing_needs.extend(needs_err)
+        if len(missing_deps) > 0 or len(missing_triggers) > 0 or len(missing_needs) > 0 or len(missing_inputs) > 0:
+            logger.error(f"Missing dependencies: {missing_deps}")
+            logger.error(f"Missing triggers: {missing_triggers}")
+            logger.error(f"Missing needs: {missing_needs}")
+            logger.error(f"Missing inputs: {missing_inputs}")
+            return False
+        return True
+
+    def _verify_dependencies(self) -> tuple[bool, list[dict[str, str]]]:
+        """Verify the service dependencies of the configuration."""
+        missing_deps: list[dict[str, str]] = []
+        for service in self.services:
+            if len(service.get_dependencies()) == 0:
+                continue
+            for svc in service.get_dependencies():
+                if svc not in self._services_dict:
+                    err_info = {"service": service.name, "dependency": svc, "info": f"{svc}not found"}
+                    missing_deps.append(err_info)
+        if len(missing_deps) > 0:
+            logger.error(f"Missing dependencies: {missing_deps}")
+            return False, missing_deps
+        return True, []
+
+    def _verify_triggers(self) -> tuple[bool, list[dict[str, str]]]:
+        """Verify the service triggers of the configuration."""
+        missing_triggers: list[dict[str, str]] = []
+        for service in self.services:
+            for test in service.get_triggers():
+                if test not in self._tests_dict:
+                    err_info = {"service": service.name, "trigger": test, "info": f"{test} not found"}
+                    missing_triggers.append(err_info)
+        if len(missing_triggers) > 0:
+            logger.error(f"Missing triggers: {missing_triggers}")
+            return False, missing_triggers
+        return True, []
+
+    def _verify_needs(self) -> bool:
+        """Verify the test needs of the configuration."""
+        missing_needs: list[dict[str, str]] = []
+        for test in self.tests:
+            for svc in test.get_needs():
+                if svc not in self._services_dict:
+                    err_info = {"test": test.name, "needs": svc, "info": f"{svc} not found"}
+                    missing_needs.append(err_info)
+        if len(missing_needs) > 0:
+            logger.error(f"Missing needs: {missing_needs}")
+            return False, missing_needs
+        return True, []
+
+    def _verify_inputs(self) -> tuple[bool, list[dict[str, str]]]:
+        """Verify the inputs of the configuration."""
+        return True, []
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the configuration instance to a dictionary.
+
+        Returns:
+            dict: The configuration instance as a dictionary
+        """
+        return {k: v for k, v in self.model_dump().items() if v is not None}
 
 
 if __name__ == "__main__":

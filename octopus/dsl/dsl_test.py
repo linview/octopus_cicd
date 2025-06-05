@@ -209,3 +209,7 @@ class DslTest(BaseModel):
             dict: The test instance as a dictionary
         """
         return {k: v for k, v in self.model_dump().items() if v is not None}
+
+    def get_needs(self) -> list[str]:
+        """Get the needs of the test."""
+        return self.needs or []

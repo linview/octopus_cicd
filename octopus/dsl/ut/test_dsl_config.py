@@ -220,3 +220,130 @@ def test_test_dependencies(valid_config: dict):
     )
     with pytest.raises(ValueError, match="Invalid test dependency"):
         DslConfig.from_dict(valid_config)
+
+
+def test_duplicate_service_name(valid_config: dict):
+    """Test duplicate service name detection."""
+    valid_config["services"].append(
+        {
+            "name": "service_simple",  # duplicated service name
+            "desc": "duplicate service",
+            "image": "nginx:latest",
+        }
+    )
+    with pytest.raises(ValueError, match="Duplicate service name found: service_simple"):
+        DslConfig.from_dict(valid_config)
+
+
+def test_duplicate_test_name(valid_config: dict):
+    """Test duplicate test name detection."""
+    valid_config["tests"].append(
+        {
+            "name": "test_shell",  # duplicated test name
+            "desc": "duplicate test",
+            "mode": "shell",
+            "runner": {
+                "cmd": ["echo", "test"],
+            },
+            "expect": {
+                "exit_code": 0,
+                "stdout": "test",
+                "stderr": "",
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="Duplicate test name found: test_shell"):
+        DslConfig.from_dict(valid_config)
+
+
+def test_unsupported_version(valid_config: dict):
+    """Test unsupported version validation."""
+    valid_config["version"] = "999.999.999"
+    with pytest.raises(ValueError, match="Unsupported version: 999.999.999"):
+        DslConfig.from_dict(valid_config)
+
+
+def test_service_depends_validation(valid_config: dict):
+    """Test service dependency validation."""
+    # depends on non-existent service
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with invalid dependency",
+            "depends_on": ["non_existent_service"],
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert not config.verify()
+
+
+def test_test_needs_validation(valid_config: dict):
+    """Test test dependency validation."""
+    # needs non-existent service
+    valid_config["tests"].append(
+        {
+            "name": "test_docker",
+            "desc": "Test with invalid dependency",
+            "mode": "docker",
+            "needs": ["non_existent_service"],
+            "runner": {
+                "cntr_name": "test_container",
+                "cmd": ["echo", "test"],
+            },
+            "expect": {
+                "exit_code": 0,
+                "stdout": "test",
+                "stderr": "",
+            },
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert not config.verify()
+
+
+def test_service_trigger_validation(valid_config: dict):
+    """Test service trigger validation."""
+    # trigger non-existent test
+    valid_config["services"].append(
+        {
+            "name": "service4",
+            "desc": "Service with invalid trigger",
+            "trigger": ["non_existent_test"],
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert not config.verify()
+
+
+def test_get_service_by_name(valid_config: dict):
+    """Test getting service by name."""
+    config = DslConfig.from_dict(valid_config)
+    service = config.get_service_by_name("service_simple")
+    assert service is not None
+    assert service.name == "service_simple"
+    assert service.image == "nginx:latest"
+
+
+def test_get_test_by_name(valid_config: dict):
+    """Test getting test by name."""
+    config = DslConfig.from_dict(valid_config)
+    test = config.get_test_by_name("test_shell")
+    assert test is not None
+    assert test.name == "test_shell"
+    assert test.mode == "shell"
+
+
+def test_get_nonexistent_service(valid_config: dict):
+    """Test getting non-existent service."""
+    config = DslConfig.from_dict(valid_config)
+    service = config.get_service_by_name("non_existent_service")
+    assert service is None
+
+
+def test_get_nonexistent_test(valid_config: dict):
+    """Test getting non-existent test."""
+    config = DslConfig.from_dict(valid_config)
+    test = config.get_test_by_name("non_existent_test")
+    assert test is None

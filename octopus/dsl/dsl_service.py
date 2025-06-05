@@ -48,3 +48,11 @@ class DslService(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Convert the service instance to a dictionary."""
         return {k: v for k, v in self.model_dump().items() if v is not None}
+
+    def get_dependencies(self) -> list[str]:
+        """Get the dependencies of the service."""
+        return self.depends_on or []
+
+    def get_triggers(self) -> list[str]:
+        """Get the triggers of the service."""
+        return self.trigger or []
