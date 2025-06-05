@@ -5,7 +5,7 @@ Test configuration models.
 from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from octopus.dsl.checker import Expect
 from octopus.dsl.constants import TestMode
@@ -81,6 +81,18 @@ class DslTest(BaseModel):
         # if expect is already an Expect instance, update its mode
         v.mode = mode
         return v
+
+    @model_validator(mode="after")
+    def update_expect_mode(self) -> "DslTest":
+        """Update co-related attributes after reassignment
+        e.g. update test.expect.mode when test.mode changes.
+
+        Returns:
+            DslTest: The updated test instance
+        """
+        if self.expect:
+            self.expect.mode = self.mode
+        return self
 
     @classmethod
     def from_dict(cls, body: dict[str, Any]) -> "DslTest":

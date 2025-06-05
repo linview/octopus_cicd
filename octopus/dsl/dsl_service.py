@@ -23,8 +23,8 @@ class DslService(BaseModel):
     envs: list[str] | None = Field(default_factory=list, description="Service environment variables")
     ports: list[str] | None = Field(default_factory=list, description="Service ports")
     vols: list[str] | None = Field(default_factory=list, description="Service volumes")
-    depends_on: list[str] | None = Field(default_factory=list, description="Service dependencies")
-    trigger: list[str] | None = Field(default_factory=list, description="Service triggers")
+    depends_on: list[str] | None = Field(default_factory=list, description="Service depends on other Services")
+    trigger: list[str] | None = Field(default_factory=list, description="Service triggers Tests")
 
     def __init__(self, **data):
         """Initialize service configuration.
