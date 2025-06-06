@@ -19,6 +19,7 @@ def valid_service_data():
         "vols": ["/host/path:/container/path"],
         "depends_on": ["service_a", "service_b"],
         "trigger": ["test_a", "test_b"],
+        "next": ["service_d"],
     }
 
 
@@ -140,6 +141,7 @@ def test_dsl_service_to_dict_with_empty_lists():
         vols=[],
         depends_on=[],
         trigger=[],
+        next=[],
     )
     result = service.to_dict()
 
@@ -154,6 +156,7 @@ def test_dsl_service_to_dict_with_empty_lists():
         "vols": [],
         "depends_on": [],
         "trigger": [],
+        "next": [],
     }
 
 
@@ -169,6 +172,7 @@ def test_dsl_service_to_dict_with_none_values():
         vols=None,
         depends_on=None,
         trigger=None,
+        next=[],
     )
     result = service.to_dict()
 
@@ -177,6 +181,7 @@ def test_dsl_service_to_dict_with_none_values():
         "name": "test",
         "desc": "test",
         "image": "nginx:latest",
+        "next": [],
     }
 
 
@@ -192,6 +197,7 @@ def test_dsl_service_to_dict_with_mixed_values():
         vols=[],
         depends_on=None,
         trigger=["test_a"],
+        next=["service_d"],
     )
     result = service.to_dict()
 
@@ -204,4 +210,30 @@ def test_dsl_service_to_dict_with_mixed_values():
         "ports": ["8080:8080"],
         "vols": [],
         "trigger": ["test_a"],
+        "next": ["service_d"],
     }
+
+
+def test_dsl_service_next_empty_list():
+    """Test DslService with empty next list (no subsequent services)."""
+    service = DslService(
+        name="test",
+        desc="test",
+        image="nginx:latest",
+        next=[],  # no subsequent services to deploy
+    )
+    assert service.next == []
+    assert service.to_dict()["next"] == []
+
+
+def test_dsl_service_next_invalid_service():
+    """Test DslService with invalid service in next list."""
+    # invalid service name
+    service = DslService(
+        name="test",
+        desc="test",
+        image="nginx:latest",
+        next=["non_existent_service"],  # invalid service name
+    )
+    assert service.next == ["non_existent_service"]
+    assert service.to_dict()["next"] == ["non_existent_service"]

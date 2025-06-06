@@ -11,6 +11,7 @@ inputs:
 services:
   - name: service_simple
     desc: "simple service verify container start"
+    next: [ $service_name, service2]
     image: nginx:latest
     # if no '--name' in args, the container name will be the service name:w
     args:
@@ -27,6 +28,7 @@ services:
   - name: $service_name      # reserved kw instance w/ lazy-var
     desc: "service verify lazy-var in service name, envs, ports, vols; 'depends_on' kw"
     # serivce dependency kw: service_A depends_on service_B; service_A, service_B must be valid
+    next: [ service2 ]
     depends_on:
       - service2
     image: nginx:latest
@@ -41,6 +43,7 @@ services:
       - ~/data:/data
   - name: service2
     desc: "service verify 'trigger' kw"
+    next: [ test_container]
     trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
     image: nginx:latest
     args:

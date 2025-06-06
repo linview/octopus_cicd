@@ -225,7 +225,10 @@ class DslConfig(BaseModel):
 
     def verify(self) -> bool:
         """Verify the configuration."""
-        missing_deps, missing_triggers, missing_needs, missing_inputs = [], [], [], []
+        missing_nexts, missing_deps, missing_triggers, missing_needs, missing_inputs = [], [], [], [], []
+        nexts_ok, nexts_err = self._verify_nexts()
+        if not nexts_ok:
+            missing_nexts.extend(nexts_err)
         inputs_ok, inputs_err = self._verify_inputs()
         if not inputs_ok:
             missing_inputs.extend(inputs_err)
@@ -238,7 +241,14 @@ class DslConfig(BaseModel):
         needs_ok, needs_err = self._verify_needs()
         if not needs_ok:
             missing_needs.extend(needs_err)
-        if len(missing_deps) > 0 or len(missing_triggers) > 0 or len(missing_needs) > 0 or len(missing_inputs) > 0:
+        if (
+            len(missing_nexts) > 0
+            or len(missing_deps) > 0
+            or len(missing_triggers) > 0
+            or len(missing_needs) > 0
+            or len(missing_inputs) > 0
+        ):
+            logger.error(f"Missing nexts: {missing_nexts}")
             logger.error(f"Missing dependencies: {missing_deps}")
             logger.error(f"Missing triggers: {missing_triggers}")
             logger.error(f"Missing needs: {missing_needs}")
@@ -246,13 +256,26 @@ class DslConfig(BaseModel):
             return False
         return True
 
+    def _verify_nexts(self) -> tuple[bool, list[dict[str, str]]]:
+        """Semantic check: Verify the service next of the configuration."""
+        missing_nexts: list[dict[str, str]] = []
+        for service in self.services:
+            for svc in service.get_next():
+                if svc not in self._services_dict:
+                    err_info = {"service": service.name, "next": svc, "info": f"{svc} not found"}
+                    missing_nexts.append(err_info)
+        if len(missing_nexts) > 0:
+            logger.error(f"Missing nexts: {missing_nexts}")
+            return False, missing_nexts
+        return True, []
+
     def _verify_dependencies(self) -> tuple[bool, list[dict[str, str]]]:
-        """Verify the service dependencies of the configuration."""
+        """Semantic check: Verify the service dependencies of the configuration."""
         missing_deps: list[dict[str, str]] = []
         for service in self.services:
-            if len(service.get_dependencies()) == 0:
+            if len(service.get_depends_on()) == 0:
                 continue
-            for svc in service.get_dependencies():
+            for svc in service.get_depends_on():
                 if svc not in self._services_dict:
                     err_info = {"service": service.name, "dependency": svc, "info": f"{svc}not found"}
                     missing_deps.append(err_info)
@@ -262,10 +285,10 @@ class DslConfig(BaseModel):
         return True, []
 
     def _verify_triggers(self) -> tuple[bool, list[dict[str, str]]]:
-        """Verify the service triggers of the configuration."""
+        """Semantic check: Verify the service triggers of the configuration."""
         missing_triggers: list[dict[str, str]] = []
         for service in self.services:
-            for test in service.get_triggers():
+            for test in service.get_trigger():
                 if test not in self._tests_dict:
                     err_info = {"service": service.name, "trigger": test, "info": f"{test} not found"}
                     missing_triggers.append(err_info)
@@ -275,7 +298,7 @@ class DslConfig(BaseModel):
         return True, []
 
     def _verify_needs(self) -> bool:
-        """Verify the test needs of the configuration."""
+        """Semantic check: Verify the test needs of the configuration."""
         missing_needs: list[dict[str, str]] = []
         for test in self.tests:
             for svc in test.get_needs():

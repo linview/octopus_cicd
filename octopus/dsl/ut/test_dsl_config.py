@@ -31,6 +31,7 @@ def valid_config() -> dict:
                 "name": "service_simple",
                 "desc": "simple service verify container start",
                 "image": "nginx:latest",
+                "next": ["service1"],
                 "args": [
                     "--ulimit nofile=1024:1024",
                     "--device all",
@@ -44,7 +45,18 @@ def valid_config() -> dict:
             {
                 "name": "service1",
                 "desc": "service verify lazy-var in service name",
+                "next": ["service2"],
                 "depends_on": ["service2"],
+                "image": "nginx:latest",
+                "args": ["--name service1"],
+                "ports": ["8080:80"],
+                "envs": ["ENV=test", "NIM_LOG=debug"],
+                "vols": ["~/data:/data"],
+            },
+            {
+                "name": "service2",
+                "desc": "service with empty next",
+                "next": [],
                 "image": "nginx:latest",
                 "args": ["--name service1"],
                 "ports": ["8080:80"],
@@ -347,3 +359,72 @@ def test_get_nonexistent_test(valid_config: dict):
     config = DslConfig.from_dict(valid_config)
     test = config.get_test_by_name("non_existent_test")
     assert test is None
+
+
+def test_service_next_validation(valid_config: dict):
+    """Test service next validation."""
+    # next to invalida service will fail semantic check
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with invalid next",
+            "next": ["non_existent_service"],
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert not config.verify()
+
+
+def test_service_next_validation_empty_list(valid_config: dict):
+    """Test service next validation with empty list."""
+    # next is empty list, no subsequent services to deploy
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with empty next",
+            "next": [],
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert config.verify()
+
+
+def test_service_next_validation_valid_service(valid_config: dict):
+    """Test service next validation with valid service."""
+    # next to valid service
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with valid next",
+            "next": ["service_simple"],  # next to valid service
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    assert config.verify()
+
+
+def test_service_next_validation_cycle(valid_config: dict):
+    """Test service next validation with cycle."""
+    # create cycle dependency, pass semantic check, will fail at DAG validation
+    valid_config["services"].append(
+        {
+            "name": "service3",
+            "desc": "Service with cycle",
+            "next": ["service4"],
+            "image": "nginx:latest",
+        }
+    )
+    valid_config["services"].append(
+        {
+            "name": "service4",
+            "desc": "Service with cycle",
+            "next": ["service3"],
+            "image": "nginx:latest",
+        }
+    )
+    config = DslConfig.from_dict(valid_config)
+    # note: here we only verify service existence, not cycle dependency
+    assert config.verify()
