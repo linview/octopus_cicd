@@ -299,6 +299,18 @@ class DslConfig(BaseModel):
         """
         return {k: v for k, v in self.model_dump().items() if v is not None}
 
+    def is_valid_service(self, service_name: str) -> bool:
+        """Check if the service name is valid."""
+        if not self.verify():
+            return False
+        return service_name in self._services_dict
+
+    def is_valid_test(self, test_name: str) -> bool:
+        """Check if the test name is valid."""
+        if not self.verify():
+            return False
+        return test_name in self._tests_dict
+
 
 if __name__ == "__main__":
     test_yaml_file = Path(__file__).parent / "test_data" / "config_sample_v0.1.0.yaml"
