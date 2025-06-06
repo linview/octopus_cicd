@@ -25,6 +25,7 @@ dependencies = [
     "loguru>=0.7.3",
     "networkx>=3.4.2",
     "matplotlib>=3.10.3",
+    "rich>=14.0.0",
 ]
 
 [project.optional-dependencies]

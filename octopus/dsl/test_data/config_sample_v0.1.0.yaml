@@ -41,17 +41,6 @@ services:
       - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
     vols:
       - ~/data:/data
-  - name: service2
-    desc: "service verify 'trigger' kw"
-    next: [ container4test ]
-    trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
-    image: nginx:latest
-    args:
-      - --name ${$cntr_name}
-    envs: []
-    vols: []
-    ports:
-      - 80:80
   - name: container4test
     desc: "test container verify 'needs', 'depends_on' kw "
     trigger: [ test_docker ]
@@ -65,6 +54,17 @@ services:
       - ENV=test
       - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
     vols: []
+  - name: service2
+    desc: "service verify 'trigger' kw"
+    next: [ container4test ]
+    trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
+    image: nginx:latest
+    args:
+      - --name ${$cntr_name}
+    envs: []
+    vols: []
+    ports:
+      - 80:80
 
 tests:
   - name: test_shell
