@@ -37,7 +37,25 @@ class HttpMethod(str, Enum):
 class Keywords:
     """Reserved keywords in the DSL."""
 
+    # Common keywords
+    DESC = "desc"
+    NAME = "name"
+
+    # Config keywords
+    VERSION = "version"
+    INPUTS = "inputs"
+    SERVICES = "services"
+    TESTS = "tests"
+
     # Service keywords
+    IMAGE = "image"
+    ARGS = "args"
+    ENVS = "envs"
+    PORTS = "ports"
+    VOLS = "vols"
+
+    # Graph keywords
+    NEXT = "next"
     DEPENDS_ON = "depends_on"
     TRIGGER = "trigger"
     NEEDS = "needs"
@@ -47,14 +65,23 @@ class Keywords:
     RUNNER = "runner"
     EXPECT = "expect"
 
-    # Common keywords
-    DESC = "desc"
-    NAME = "name"
-    IMAGE = "image"
-    ARGS = "args"
-    ENVS = "envs"
-    PORTS = "ports"
-    VOLS = "vols"
+    # Runner keywords
+    CMD = "cmd"
+    HEADER = "header"
+    METHOD = "method"
+    PAYLOAD = "payload"
+    ENDPOINT = "endpoint"
+    ROOT_DIR = "root_dir"
+    TEST_ARGS = "test_args"
+    PROTO = "proto"
+    FUNCTION = "function"
+
+    # Checker(Expect) keywords
+    EXIT_CODE = "exit_code"
+    STDOUT = "stdout"
+    STDERR = "stderr"
+    STATUS_CODE = "status_code"
+    RESPONSE = "response"
 
 
 # Required fields for each test mode

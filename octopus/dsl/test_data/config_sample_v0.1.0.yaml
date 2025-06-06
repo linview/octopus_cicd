@@ -43,7 +43,7 @@ services:
       - ~/data:/data
   - name: service2
     desc: "service verify 'trigger' kw"
-    next: [ test_container]
+    next: [ container4test ]
     trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
     image: nginx:latest
     args:
@@ -52,8 +52,9 @@ services:
     vols: []
     ports:
       - 80:80
-  - name: test_container
+  - name: container4test
     desc: "test container verify 'needs', 'depends_on' kw "
+    trigger: [ test_docker ]
     # container include test_cases, it can be triggered by test_cases
     depends_on: [ service_simple ]
     image: test_image:latest
@@ -100,11 +101,11 @@ tests:
       exit_code: 0
   - name: test_docker
     # assume test case is running in docker container, e..g docker exec <container_id> <cmd>
-    needs: [ test_container ]   # needs kw: test_docker will check service test_container is running
+    needs: [ container4test ]   # needs kw: test_docker will check service test_container is running
     desc: "test run in docker container"
     mode: docker
     runner:
-      cntr_name: "test_container"
+      cntr_name: "container4test"
       cmd: ["echo", "Hello, World!"]
     expect:
       exit_code: 0
