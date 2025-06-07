@@ -88,7 +88,7 @@ class Keywords:
     KW_RESPONSE = "response"
 
     @classmethod
-    def is_valid_version(cls, version: str) -> bool:
+    def is_support_version(cls, version: str) -> bool:
         """Check if the version is valid."""
         return version in SUPPORTED_VERSION
 

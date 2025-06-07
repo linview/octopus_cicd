@@ -220,6 +220,7 @@ class DslConfig(BaseModel):
             DslConfig: An instance of the configuration model
 
         Raises:
+            ValueError: If the YAML file is invalid
             FileNotFoundError: If the YAML file does not exist
             yaml.YAMLError: If the YAML file is invalid
         """
@@ -233,7 +234,7 @@ class DslConfig(BaseModel):
                 logger.exception("Failed to load YAML file")
                 return None
 
-        if not Keywords.is_valid_version(yaml_data.get("version", None)):
+        if not Keywords.is_support_version(yaml_data.get("version", None)):
             raise ValueError(f"Unsupported version: {yaml_data.get('version', None)}")
 
         cls._syntax_check(yaml_data)
