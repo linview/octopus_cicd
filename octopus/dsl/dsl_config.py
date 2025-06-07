@@ -13,20 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, 
 from octopus.dsl.constants import SUPPORTED_VERSION
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
-
-
-class Variable(BaseModel):
-    """Input variable configuration.
-
-    Since the input format in YAML is key-value pairs like:
-    - service_name: service1
-    - $cntr_name: service_container
-
-    We need to handle this structure dynamically at runtime.
-    """
-
-    key: str = Field(description="Input variable name")
-    value: str = Field(description="Input variable value")
+from octopus.dsl.variable import Variable
 
 
 class DslConfig(BaseModel):
