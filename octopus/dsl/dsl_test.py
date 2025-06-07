@@ -213,3 +213,12 @@ class DslTest(BaseModel):
     def get_needs(self) -> list[str]:
         """Get the needs of the test."""
         return self.needs or []
+
+    def __repr__(self) -> str:
+        """Return the string representation of the test instance."""
+        attrs = []
+        for field in self.model_fields:
+            value = getattr(self, field)
+            if value is not None:
+                attrs.append(f"{field}={value!r}")
+        return f"DslTest({', '.join(attrs)})"

@@ -39,6 +39,11 @@ class Expect(BaseModel):
         """Convert the expect instance to a dictionary."""
         return {k: v for k, v in self.model_dump().items() if v is not None}
 
-    def __repr__(self) -> dict[str, str]:
+    def __repr__(self) -> str:
         """Return the string representation of the expect instance."""
-        return self.to_dict()
+        attrs = []
+        for field in self.model_fields:
+            value = getattr(self, field)
+            if value is not None:
+                attrs.append(f"{field}={value!r}")
+        return f"Expect({', '.join(attrs)})"

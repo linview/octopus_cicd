@@ -331,8 +331,45 @@ class DslConfig(BaseModel):
             return False
         return test_name in self._tests_dict
 
+    def gen_execution_plan(self) -> dict[str, list[str]]:
+        """generate execution plan by DAG"""
+        if not self.verify():
+            raise ValueError("Current config failed semantic check")
+        return self._dag_manger.generate_execution_plan()
+
+    def print_execution_dag(self):
+        """generate execution DAG by DAG"""
+        if not self.verify():
+            raise ValueError("Current config failed semantic check")
+        if not self._dag_manger.is_valid_dag():
+            raise ValueError("Current config failed DAG check")
+        self._dag_manger.visualize_with_rich()
+
+    def visualize_execution_dag(self):
+        """visualize execution DAG by DAG"""
+        if not self.verify():
+            raise ValueError("Current config failed semantic check")
+        if not self._dag_manger.is_valid_dag():
+            raise ValueError("Current config failed DAG check")
+        self._dag_manger.visualize_with_plt()
+
+    def __repr__(self) -> str:
+        """Custom string representation."""
+        attrs = []
+        for field in self.model_fields:
+            value = getattr(self, field)
+            if value is not None:
+                attrs.append(f"{field}={value!r}")
+        return f"DslConfig({', '.join(attrs)})"
+
 
 if __name__ == "__main__":
     test_yaml_file = Path(__file__).parent / "test_data" / "config_sample_v0.1.0.yaml"
     config = DslConfig.from_yaml_file(test_yaml_file)
-    print(config)
+    try:
+        print(config)
+    except TypeError:
+        logger.exception("Failed to print config")
+    print(config.gen_execution_plan())
+    config.print_execution_dag()
+    config.visualize_execution_dag()

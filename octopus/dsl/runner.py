@@ -43,6 +43,15 @@ class BaseRunner(BaseModel, RunnerInterface):
         """
         raise NotImplementedError("Subclasses must implement get_command")
 
+    def __repr__(self) -> str:
+        """Return the string representation of the runner instance."""
+        attrs = []
+        for field in self.model_fields:
+            value = getattr(self, field)
+            if value is not None:
+                attrs.append(f"{field}={value!r}")
+        return f"{self.__class__.__name__}({', '.join(attrs)})"
+
 
 class ShellRunner(BaseRunner):
     """Shell command test runner."""
