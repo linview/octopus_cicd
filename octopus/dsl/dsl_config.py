@@ -11,6 +11,7 @@ from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator
 
 from octopus.dsl.constants import SUPPORTED_VERSION
+from octopus.dsl.dag_manager import DAGManager
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
 from octopus.dsl.variable import Variable
@@ -35,6 +36,7 @@ class DslConfig(BaseModel):
     # Private fields for internal use
     _services_dict: dict[str, DslService] = PrivateAttr(default_factory=dict)
     _tests_dict: dict[str, DslTest] = PrivateAttr(default_factory=dict)
+    _dag_manger: DAGManager = PrivateAttr(default=None)
 
     def __init__(self, **data: Any):
         """Initialize configuration.
@@ -59,6 +61,14 @@ class DslConfig(BaseModel):
             if test.name in self._tests_dict:
                 raise ValueError(f"Duplicate test name found: {test.name}")
             self._tests_dict[test.name] = test
+
+        self._init_dag()
+
+    def _init_dag(self):
+        """Init DAG with self"""
+        if not self.verify():
+            raise ValueError("Current config failed semantic check")
+        self._dag_manger = DAGManager(self)
 
     @field_validator("version")
     @classmethod

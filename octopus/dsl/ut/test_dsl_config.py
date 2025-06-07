@@ -286,8 +286,9 @@ def test_service_depends_validation(valid_config: dict):
             "image": "nginx:latest",
         }
     )
-    config = DslConfig.from_dict(valid_config)
-    assert not config.verify()
+    with pytest.raises(ValueError, match="semantic check"):
+        config = DslConfig.from_dict(valid_config)
+        assert not config.verify()
 
 
 def test_test_needs_validation(valid_config: dict):
@@ -310,8 +311,9 @@ def test_test_needs_validation(valid_config: dict):
             },
         }
     )
-    config = DslConfig.from_dict(valid_config)
-    assert not config.verify()
+    with pytest.raises(ValueError, match="semantic check"):
+        config = DslConfig.from_dict(valid_config)
+        assert not config.verify()
 
 
 def test_service_trigger_validation(valid_config: dict):
@@ -325,8 +327,9 @@ def test_service_trigger_validation(valid_config: dict):
             "image": "nginx:latest",
         }
     )
-    config = DslConfig.from_dict(valid_config)
-    assert not config.verify()
+    with pytest.raises(ValueError, match="semantic check"):
+        config = DslConfig.from_dict(valid_config)
+        assert not config.verify()
 
 
 def test_get_service_by_name(valid_config: dict):
@@ -372,8 +375,9 @@ def test_service_next_validation(valid_config: dict):
             "image": "nginx:latest",
         }
     )
-    config = DslConfig.from_dict(valid_config)
-    assert not config.verify()
+    with pytest.raises(ValueError, match="semantic check"):
+        config = DslConfig.from_dict(valid_config)
+        assert not config.verify()
 
 
 def test_service_next_validation_empty_list(valid_config: dict):

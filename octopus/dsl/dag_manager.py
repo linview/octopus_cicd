@@ -1,9 +1,10 @@
 import sys
+from typing import Protocol, runtime_checkable
 
 import networkx as nx
 from loguru import logger
 
-from octopus.dsl.dsl_config import DslConfig
+# from octopus.dsl.dsl_config import DslConfig
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
 
@@ -11,6 +12,29 @@ logger.remove()
 logger.add(sys.stdout, level="DEBUG")
 
 ALLOWED_EDGE_TYPES = ["next", "trigger", "depends_on", "needs"]
+
+
+@runtime_checkable
+class ConfigProtocol(Protocol):
+    """Duck typing of DslConfig required by DAGManager."""
+
+    @property
+    def services(self) -> list[DslService]:
+        """Get list of services."""
+        ...
+
+    @property
+    def tests(self) -> list[DslTest]:
+        """Get list of tests."""
+        ...
+
+    def is_valid_service(self, service_name: str) -> bool:
+        """Check if a service name is valid."""
+        ...
+
+    def is_valid_test(self, test_name: str) -> bool:
+        """Check if a test name is valid."""
+        ...
 
 
 class DAGManager:
@@ -24,15 +48,15 @@ class DAGManager:
     - Visualize the dependency graph (optional)
     """
 
-    dsl_config: DslConfig
+    dsl_config: ConfigProtocol
     _full_graph: nx.Graph
     __edge_types_in_dag: list[str] = ["next", "trigger"]
 
-    def __init__(self, dsl_config: DslConfig):
+    def __init__(self, dsl_config: ConfigProtocol):
         """Initialize the DAGManager with a DslConfig instance.
 
         Args:
-            dsl_config: A DslConfig instance containing service and test definitions
+            dsl_config: A configuration instance implementing ConfigProtocol
         """
         self.dsl_config = dsl_config
         self._full_graph = nx.DiGraph()
