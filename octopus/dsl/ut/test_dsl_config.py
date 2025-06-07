@@ -193,8 +193,6 @@ def test_test_mode_validation(valid_config: dict):
         DslConfig.from_dict(valid_config)
 
 
-@pytest.mark.TODO(reason="kw 'depends_on' is not implemented")
-@pytest.mark.xfail(reason="kw 'depends_on' is not implemented")
 def test_service_dependencies(valid_config: dict):
     """Test service dependency validation."""
     valid_config["services"].append(
@@ -205,14 +203,10 @@ def test_service_dependencies(valid_config: dict):
             "image": "nginx:latest",
         }
     )
-    # DslConfig.from_dict(valid_config)
-    # TODO: shall xfail when 'depends_on' is implemented
-    with pytest.raises(ValueError, match="Invalid service dependency"):
+    with pytest.raises(ValueError, match="semantic check failed"):
         DslConfig.from_dict(valid_config)
 
 
-@pytest.mark.TODO("need to implement 'needs' kw")
-@pytest.mark.xfail(reason="kw 'needs' is not implemented")
 def test_test_dependencies(valid_config: dict):
     """Test test dependency validation."""
     valid_config["tests"].append(
@@ -227,10 +221,11 @@ def test_test_dependencies(valid_config: dict):
             "expect": {
                 "exit_code": 0,
                 "stdout": "test",
+                "stderr": "",
             },
         }
     )
-    with pytest.raises(ValueError, match="Invalid test dependency"):
+    with pytest.raises(ValueError, match="semantic check failed"):
         DslConfig.from_dict(valid_config)
 
 

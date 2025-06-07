@@ -66,8 +66,7 @@ class DslConfig(BaseModel):
 
     def _init_dag(self):
         """Init DAG with self"""
-        if not self.verify():
-            raise ValueError("Current config failed semantic check")
+        self.verify()
         self._dag_manger = DAGManager(self)
 
     @field_validator("version")
@@ -220,37 +219,50 @@ class DslConfig(BaseModel):
 
         return cls.from_dict(yaml_data)
 
-    def verify(self) -> bool:
-        """Verify the configuration."""
-        missing_nexts, missing_deps, missing_triggers, missing_needs, missing_inputs = [], [], [], [], []
+    def _collect_verification_errors(self) -> list[str]:
+        """Collect all verification errors.
+
+        Returns:
+            list[str]: List of error messages, empty if no errors found
+        """
+        errors = []
+
+        # Verify next references
         nexts_ok, nexts_err = self._verify_nexts()
         if not nexts_ok:
-            missing_nexts.extend(nexts_err)
-        inputs_ok, inputs_err = self._verify_inputs()
-        if not inputs_ok:
-            missing_inputs.extend(inputs_err)
+            errors.append(f"Services with invalid 'next': {nexts_err}")
+
+        # Verify dependencies
         deps_ok, deps_err = self._verify_dependencies()
         if not deps_ok:
-            missing_deps.extend(deps_err)
+            errors.append(f"Services with invalid 'depends_on': {deps_err}")
+
+        # Verify triggers
         trig_ok, trig_err = self._verify_triggers()
         if not trig_ok:
-            missing_triggers.extend(trig_err)
+            errors.append(f"Services with invalid 'trigger': {trig_err}")
+
+        # Verify needs
         needs_ok, needs_err = self._verify_needs()
         if not needs_ok:
-            missing_needs.extend(needs_err)
-        if (
-            len(missing_nexts) > 0
-            or len(missing_deps) > 0
-            or len(missing_triggers) > 0
-            or len(missing_needs) > 0
-            or len(missing_inputs) > 0
-        ):
-            logger.error(f"Missing nexts: {missing_nexts}")
-            logger.error(f"Missing dependencies: {missing_deps}")
-            logger.error(f"Missing triggers: {missing_triggers}")
-            logger.error(f"Missing needs: {missing_needs}")
-            logger.error(f"Missing inputs: {missing_inputs}")
-            return False
+            errors.append(f"Tests with invalid 'needs': {needs_err}")
+
+        # Verify inputs
+        inputs_ok, inputs_err = self._verify_inputs()
+        if not inputs_ok:
+            errors.append(f"Invalid input references: {inputs_err}")
+
+        return errors
+
+    def verify(self) -> bool:
+        """Verify the configuration by semantic check.
+
+        Raises:
+            ValueError: If any semantic check fails, with detailed error messages
+        """
+        errors = self._collect_verification_errors()
+        if errors:
+            raise ValueError("semantic check failed:\n" + "\n".join(errors))
         return True
 
     def _verify_nexts(self) -> tuple[bool, list[dict[str, str]]]:
@@ -274,7 +286,7 @@ class DslConfig(BaseModel):
                 continue
             for svc in service.get_depends_on():
                 if svc not in self._services_dict:
-                    err_info = {"service": service.name, "dependency": svc, "info": f"{svc}not found"}
+                    err_info = {"service": service.name, "dependency": svc, "info": f"{svc} not found"}
                     missing_deps.append(err_info)
         if len(missing_deps) > 0:
             logger.error(f"Missing dependencies: {missing_deps}")
@@ -321,34 +333,29 @@ class DslConfig(BaseModel):
 
     def is_valid_service(self, service_name: str) -> bool:
         """Check if the service name is valid."""
-        if not self.verify():
-            return False
+        self.verify()
         return service_name in self._services_dict
 
     def is_valid_test(self, test_name: str) -> bool:
         """Check if the test name is valid."""
-        if not self.verify():
-            return False
+        self.verify()
         return test_name in self._tests_dict
 
     def gen_execution_plan(self) -> dict[str, list[str]]:
         """generate execution plan by DAG"""
-        if not self.verify():
-            raise ValueError("Current config failed semantic check")
+        self.verify()
         return self._dag_manger.generate_execution_plan()
 
     def print_execution_dag(self):
         """generate execution DAG by DAG"""
-        if not self.verify():
-            raise ValueError("Current config failed semantic check")
+        self.verify()
         if not self._dag_manger.is_valid_dag():
             raise ValueError("Current config failed DAG check")
         self._dag_manger.visualize_with_rich()
 
     def visualize_execution_dag(self):
         """visualize execution DAG by DAG"""
-        if not self.verify():
-            raise ValueError("Current config failed semantic check")
+        self.verify()
         if not self._dag_manger.is_valid_dag():
             raise ValueError("Current config failed DAG check")
         self._dag_manger.visualize_with_plt()
