@@ -2,6 +2,7 @@
 Constants used in the DSL configuration.
 """
 
+import inspect
 from enum import Enum
 
 
@@ -37,51 +38,78 @@ class HttpMethod(str, Enum):
 class Keywords:
     """Reserved keywords in the DSL."""
 
+    __CURRENT_VERSION = "0.1.0"
+
     # Common keywords
-    DESC = "desc"
-    NAME = "name"
+    KW_DESC = "desc"
+    KW_NAME = "name"
 
     # Config keywords
-    VERSION = "version"
-    INPUTS = "inputs"
-    SERVICES = "services"
-    TESTS = "tests"
+    KW_VERSION = "version"
+    KW_INPUTS = "inputs"
+    KW_SERVICES = "services"
+    KW_TESTS = "tests"
 
     # Service keywords
-    IMAGE = "image"
-    ARGS = "args"
-    ENVS = "envs"
-    PORTS = "ports"
-    VOLS = "vols"
+    KW_IMAGE = "image"
+    KW_ARGS = "args"
+    KW_ENVS = "envs"
+    KW_PORTS = "ports"
+    KW_VOLS = "vols"
 
     # Graph keywords
-    NEXT = "next"
-    DEPENDS_ON = "depends_on"
-    TRIGGER = "trigger"
-    NEEDS = "needs"
+    KW_NEXT = "next"
+    KW_DEPENDS_ON = "depends_on"
+    KW_TRIGGER = "trigger"
+    KW_NEEDS = "needs"
 
     # Test keywords
-    MODE = "mode"
-    RUNNER = "runner"
-    EXPECT = "expect"
+    KW_MODE = "mode"
+    KW_RUNNER = "runner"
+    KW_EXPECT = "expect"
 
     # Runner keywords
-    CMD = "cmd"
-    HEADER = "header"
-    METHOD = "method"
-    PAYLOAD = "payload"
-    ENDPOINT = "endpoint"
-    ROOT_DIR = "root_dir"
-    TEST_ARGS = "test_args"
-    PROTO = "proto"
-    FUNCTION = "function"
+    KW_CMD = "cmd"
+    KW_HEADER = "header"
+    KW_METHOD = "method"
+    KW_PAYLOAD = "payload"
+    KW_ENDPOINT = "endpoint"
+    KW_ROOT_DIR = "root_dir"
+    KW_TEST_ARGS = "test_args"
+    KW_PROTO = "proto"
+    KW_FUNCTION = "function"
+    KW_CNTR_NAME = "cntr_name"
 
     # Checker(Expect) keywords
-    EXIT_CODE = "exit_code"
-    STDOUT = "stdout"
-    STDERR = "stderr"
-    STATUS_CODE = "status_code"
-    RESPONSE = "response"
+    KW_EXIT_CODE = "exit_code"
+    KW_STDOUT = "stdout"
+    KW_STDERR = "stderr"
+    KW_STATUS_CODE = "status_code"
+    KW_RESPONSE = "response"
+
+    @classmethod
+    def is_valid_version(cls, version: str) -> bool:
+        """Check if the version is valid."""
+        return version in SUPPORTED_VERSION
+
+    @classmethod
+    def is_valid_keyword(cls, key: str) -> bool:
+        """Check if the keyword is valid."""
+
+        def _get_kw_collection(cls):
+            return [
+                v
+                for k, v in cls.__dict__.items()
+                if not (
+                    k.startswith("_")
+                    or inspect.ismethod(v)
+                    or inspect.isfunction(v)
+                    or isinstance(v, classmethod)
+                    or k in ["model_config", "model_fields"]
+                )
+            ]
+
+        return key in _get_kw_collection(cls)
 
 
 # Required fields for each test mode

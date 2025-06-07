@@ -10,7 +10,7 @@ import yaml
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator
 
-from octopus.dsl.constants import SUPPORTED_VERSION
+from octopus.dsl.constants import SUPPORTED_VERSION, Keywords
 from octopus.dsl.dag_manager import DAGManager
 from octopus.dsl.dsl_service import DslService
 from octopus.dsl.dsl_test import DslTest
@@ -192,6 +192,22 @@ class DslConfig(BaseModel):
         return cls(**data)
 
     @classmethod
+    def _syntax_check(cls, data: dict):
+        """Syntax check for config yaml data"""
+        if isinstance(data, dict):
+            for key in data:
+                if key in [Keywords.KW_INPUTS]:
+                    continue
+                if not Keywords.is_valid_keyword(key):
+                    raise ValueError(f"Syntax error: invalid keyword '{key}'")
+                cls._syntax_check(data[key])
+        elif isinstance(data, list):
+            for item in data:
+                cls._syntax_check(item)
+        else:
+            return
+
+    @classmethod
     def from_yaml_file(cls, yaml_path: Path) -> "DslConfig":
         """Create a configuration instance from a YAML file.
 
@@ -217,6 +233,10 @@ class DslConfig(BaseModel):
                 logger.exception("Failed to load YAML file")
                 return None
 
+        if not Keywords.is_valid_version(yaml_data.get("version", None)):
+            raise ValueError(f"Unsupported version: {yaml_data.get('version', None)}")
+
+        cls._syntax_check(yaml_data)
         return cls.from_dict(yaml_data)
 
     def _collect_verification_errors(self) -> list[str]:
