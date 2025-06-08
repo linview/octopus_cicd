@@ -413,7 +413,16 @@ class DslConfig(BaseModel):
     def gen_execution_plan(self) -> dict[str, list[str]]:
         """generate execution plan by DAG"""
         self.verify()
-        return self._dag_manger.generate_execution_plan()
+        execution_plan = self._dag_manger.generate_execution_plan()
+        cmd_list = []
+        for name in execution_plan:
+            if name in self._services_dict:
+                cmd_list.append(f">>> service '{name}': {self._services_dict[name].get_command()}")
+            elif name in self._tests_dict:
+                cmd_list.append(f">>> test '{name}': {self._tests_dict[name].get_command()}")
+            else:
+                raise ValueError(f"Invalid node name: {name}")
+        return "\n".join(cmd_list)
 
     def print_execution_dag(self):
         """generate execution DAG by DAG"""
@@ -448,7 +457,9 @@ if __name__ == "__main__":
         logger.exception("Failed to print config")
     config.evaluate({})
     data = config.to_dict()
-    print(f">>>data: {json.dumps(data, indent=2)}")
+    print(f">>>data: {json.dumps(data, indent=2)}\n\n")
+    print("\n>>> execution orders <<<\n")
     print(config.gen_execution_plan())
+    print("\nExecution plan by DAG\n")
     config.print_execution_dag()
     config.visualize_execution_dag()

@@ -5,7 +5,6 @@ Test configuration models.
 import copy
 from typing import Any
 
-from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator, model_validator
 
 from octopus.dsl.checker import Expect
@@ -89,10 +88,10 @@ class DslTest(BaseModel):
             Expect: The validated expect instance
         """
         # Get current field name
-        field_name = info.field_name  # Should be "expect"
-        logger.debug(f"field_name: {field_name}")
+        # field_name = info.field_name  # Should be "expect"
+        # logger.debug(f"field_name: {field_name}")
 
-        # Get all field values
+        # Get all fields in context
         all_data = info.data  # Dictionary containing all fields
 
         # Get specific field value

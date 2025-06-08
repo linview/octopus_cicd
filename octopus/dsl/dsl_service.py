@@ -95,20 +95,20 @@ class DslService(BaseModel):
 
     def get_command(self) -> str:
         """Get the command of the service."""
-        cmd = "docker run"
+        cmd = ["docker run"]
         if self.name:
-            cmd += f" --name {self.name}"
+            cmd.extend([f" --name {self.name}"])
         if self.args:
-            cmd += " ".join(self.args)
+            cmd.extend([" ".join(self.args)])
         if self.envs:
-            cmd += " ".join([f"-e {env}" for env in self.envs])
+            cmd.extend([f"-e {env}" for env in self.envs])
         if self.ports:
-            cmd += " ".join([f"-p {port}" for port in self.ports])
+            cmd.extend([f"-p {port}" for port in self.ports])
         if self.vols:
-            cmd += " ".join([f"-v {vol}" for vol in self.vols])
+            cmd.extend([f"-v {vol}" for vol in self.vols])
         if self.image:
-            cmd += f" {self.image}"
-        return cmd
+            cmd.extend([f" {self.image}"])
+        return " ".join(cmd)
 
     def __repr__(self) -> str:
         """Return the string representation of the service instance."""

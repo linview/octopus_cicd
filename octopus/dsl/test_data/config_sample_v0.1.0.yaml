@@ -115,7 +115,7 @@ tests:
     mode: docker
     runner:
       cntr_name: "container4test"
-      cmd: ["echo", "Hello, World!"]
+      cmd: ["echo", '"Hello, World!"']
     expect:
       exit_code: 0
       stdout: "Hello, World!"

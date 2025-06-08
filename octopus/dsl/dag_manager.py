@@ -175,41 +175,100 @@ class DAGManager:
             raise ValueError("Cannot perform topological sort on a graph with cycles.")
         return list(nx.topological_sort(self._gen_subgraph()))
 
-    def generate_execution_plan(self) -> dict[str, list[str]]:
-        """Generate deployment and execution plans based on dependencies.
+    def generate_execution_plan(self) -> list[str]:
+        """Generate execution plan based on dependencies.
 
-        The deployment plan includes services in the order they should be deployed.
-        The execution plan includes tests in the order they should be executed,
-        ensuring all required services are already deployed.
+        The execution plan follows these rules:
+        1. Start from root service nodes (service nodes with in_degree == 0)
+        2. For each service node:
+           - Execute the service
+           - Execute all its triggered tests
+           - Move to the next service node through 'next' edge
+        3. Continue until all nodes are processed
 
         Returns:
-            Dictionary with 'deploy' and 'execute' keys containing ordered lists
+            List of node names in execution order
 
         Raises:
-            ValueError: If any test's required services are missing from deployment plan
+            ValueError: If the graph is not a valid DAG
         """
-        order = self.get_topological_order()
-        service_names = {s.name for s in self.dsl_config.services}
-        test_names = {t.name for t in self.dsl_config.tests}
+        if not self.is_valid_dag():
+            raise ValueError("Cannot generate execution plan for a graph with cycles")
 
-        plan = {"deploy": [], "execute": []}
+        graph = self._gen_subgraph()
+        execution_plan = []
+        visited = set()
 
-        # Deployment order: only services
-        for node in order:
-            if node in service_names:
-                plan["deploy"].append(node)
+        # Find root service nodes (service nodes with in_degree == 0)
+        root_services = [
+            node for node in graph.nodes() if graph.nodes[node].get("type") == "service" and graph.in_degree(node) == 0
+        ]
 
-        executed_tests = set()
-        for node in order:
-            if node in test_names and node not in executed_tests:
-                test_obj = next(t for t in self.dsl_config.tests if t.name == node)
-                missing = [n for n in test_obj.needs if n not in plan["deploy"]]
-                if missing:
-                    raise ValueError(f"Test '{node}' cannot run because dependencies {missing} are missing.")
-                plan["execute"].append(node)
-                executed_tests.add(node)
+        # Process each root service and its chain
+        for root in root_services:
+            self._process_service_node(graph, root, execution_plan, visited)
 
-        return plan
+        return execution_plan
+
+    def _process_service_node(self, graph, service_node, execution_plan, visited):
+        """Process a service node and its triggered tests.
+
+        Args:
+            graph: The graph structure
+            service_node: The service node to process
+            execution_plan: The execution plan being built
+            visited: Set of visited nodes
+        """
+        if service_node in visited:
+            return
+
+        # Add service to execution plan
+        visited.add(service_node)
+        execution_plan.append(service_node)
+
+        # Process triggered tests
+        triggered_tests = self._get_triggered_tests(graph, service_node, visited)
+        for test in triggered_tests:
+            visited.add(test)
+            execution_plan.append(test)
+
+        # Process next service
+        next_service = self._get_next_service(graph, service_node, visited)
+        if next_service:
+            self._process_service_node(graph, next_service, execution_plan, visited)
+
+    def _get_triggered_tests(self, graph, service_node, visited):
+        """Get all test nodes triggered by a service node.
+
+        Args:
+            graph: The graph structure
+            service_node: The service node to check
+            visited: Set of visited nodes
+
+        Returns:
+            List of test nodes triggered by the service
+        """
+        triggered_tests = []
+        for _, test_node in graph.out_edges(service_node):
+            if graph.edges[service_node, test_node].get("type") == "trigger" and test_node not in visited:
+                triggered_tests.append(test_node)
+        return triggered_tests
+
+    def _get_next_service(self, graph, service_node, visited):
+        """Get the next service node through 'next' edge.
+
+        Args:
+            graph: The graph structure
+            service_node: The current service node
+            visited: Set of visited nodes
+
+        Returns:
+            The next service node, or None if not found
+        """
+        for _, next_node in graph.out_edges(service_node):
+            if graph.edges[service_node, next_node].get("type") == "next" and next_node not in visited:
+                return next_node
+        return None
 
     def visualize_with_plt(self, output_file: str | None = None):
         """Visualize test execution DAG with matplotlib
