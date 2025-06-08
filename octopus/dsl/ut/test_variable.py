@@ -37,7 +37,7 @@ def test_variable_value_setter(normal_variable, lazy_variable):
     assert lazy_variable.value == "new_container"
 
     # Test normal variable value setting (should raise error)
-    with pytest.raises(ValueError, match="Cannot reassign value for non-lazy variable"):
+    with pytest.raises(ValueError, match="Cannot reassign value to non-lazy variable"):
         normal_variable.value = "new_service"
 
 

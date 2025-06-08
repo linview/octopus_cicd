@@ -188,6 +188,15 @@ class DslTest(BaseModel):
 
         return v
 
+    def evaluate(self, variables: dict[str, Any]) -> None:
+        """Evaluate the test with given variables.
+
+        Args:
+            variables: A dictionary of variables to evaluate the test with
+        """
+        # data = self.model_dump()
+        ...
+
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Convert the model to a dictionary.
 

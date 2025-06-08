@@ -3,6 +3,7 @@ Configuration DSL (Domain Specific Language) definition for test orchestration.
 This module defines the data models for parsing and validating test configuration YAML files.
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -285,17 +286,6 @@ class DslConfig(BaseModel):
 
         return errors
 
-    def verify(self) -> bool:
-        """Verify the configuration by semantic check.
-
-        Raises:
-            ValueError: If any semantic check fails, with detailed error messages
-        """
-        errors = self._collect_verification_errors()
-        if errors:
-            raise ValueError("semantic check failed:\n" + "\n".join(errors))
-        return True
-
     def _verify_nexts(self) -> tuple[bool, list[dict[str, str]]]:
         """Semantic check: Verify the service next of the configuration."""
         missing_nexts: list[dict[str, str]] = []
@@ -354,6 +344,40 @@ class DslConfig(BaseModel):
         """Verify the inputs of the configuration."""
         return True, []
 
+    def verify(self) -> bool:
+        """Verify the configuration by semantic check.
+
+        Raises:
+            ValueError: If any semantic check fails, with detailed error messages
+        """
+        errors = self._collect_verification_errors()
+        if errors:
+            raise ValueError("semantic check failed:\n" + "\n".join(errors))
+        return True
+
+    def evaluate(self, variables: dict[str, Any]) -> None:
+        """Evaluate the configuration with given variables.
+
+        Args:
+            variables: A dictionary of variables to evaluate the configuration with
+        """
+        inputs_ok, _ = self._verify_inputs()
+        if not inputs_ok:
+            raise ValueError("inputs verification failed")
+        for k, v in variables.items():
+            if k not in self._inputs_dict:
+                logger.warning(f"Skip invalid variable: {k}")
+            if k in self._lazy_vars:
+                self._lazy_vars[k].value = str(v)
+                self._inputs_dict[k].value = str(v)
+            else:
+                logger.warning(f"Skip updating non-lazy variable: {k}")
+        var_dict = {v.key: v.value for k, v in self._inputs_dict.items()}
+        for test in self.tests:
+            test.evaluate(var_dict)
+        for service in self.services:
+            service.evaluate(var_dict)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert the configuration instance to a dictionary.
 
@@ -405,9 +429,12 @@ if __name__ == "__main__":
     test_yaml_file = Path(__file__).parent / "test_data" / "config_sample_v0.1.0.yaml"
     config = DslConfig.from_yaml_file(test_yaml_file)
     try:
-        print(config)
+        print(json.dumps(config.to_dict(), indent=2))
     except TypeError:
         logger.exception("Failed to print config")
+    config.evaluate({})
+    data = config.to_dict()
+    print(f">>>data: {json.dumps(data, indent=2)}")
     print(config.gen_execution_plan())
     config.print_execution_dag()
     config.visualize_execution_dag()

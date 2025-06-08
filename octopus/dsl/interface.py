@@ -29,3 +29,19 @@ class RunnerInterface(ABC):
             Dict[str, Any]: The runner's configuration dictionary
         """
         pass
+
+
+class Evaluable(ABC):
+    """Interface for evaluable objects.
+
+    All evaluable objects must implement this interface to ensure consistent behavior.
+    """
+
+    @abstractmethod
+    def evaluate(self, variables: dict[str, Any]) -> None:
+        """Evaluate object with given variables.
+
+        Args:
+            variables: A dictionary of variables to evaluate the object with
+        """
+        pass

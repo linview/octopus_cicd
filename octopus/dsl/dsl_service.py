@@ -48,6 +48,15 @@ class DslService(BaseModel):
         """
         return cls(**body)
 
+    def evaluate(self, variables: dict[str, Any]) -> None:
+        """Evaluate the service with given variables.
+
+        Args:
+            variables: A dictionary of variables to evaluate the service with
+        """
+        # data = self.model_dump()
+        ...
+
     def to_dict(self) -> dict[str, Any]:
         """Convert the service instance to a dictionary."""
         return {k: v for k, v in self.model_dump().items() if v is not None}
