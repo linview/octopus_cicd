@@ -124,7 +124,7 @@ def test_load_nonexistent_config_file(tmp_path: Path):
 
 
 @pytest.mark.TODO("missing required 'inputs' shall be handled by pydantic")
-@pytest.mark.xfail(reason="missing required 'inputs' shall be handled by pydantic")
+# @pytest.mark.xfail(reason="missing required 'inputs' shall be handled by pydantic")
 def test_missing_required_fields(tmp_path: Path):
     """Test config with missing required fields."""
     invalid_config = {
@@ -135,7 +135,7 @@ def test_missing_required_fields(tmp_path: Path):
         "tests": [],
     }
     # DslConfig.from_dict(invalid_config)
-    with pytest.raises(ValueError, match="Missing required fields"):
+    with pytest.raises(KeyError, match="inputs"):
         DslConfig.from_dict(invalid_config)
 
 

@@ -210,6 +210,7 @@ def test_yaml_config():
     version: "0.1.0"
     name: yaml_config
     desc: Configuration loaded from YAML
+    inputs:
     services:
       - name: service_1
         desc: Service 1

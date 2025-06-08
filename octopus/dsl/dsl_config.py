@@ -127,6 +127,8 @@ class DslConfig(BaseModel):
             list[dict]: List of transformed input data
         """
         inputs = []
+        if inputs_data is None:
+            return inputs
         for item in inputs_data:
             if isinstance(item, dict):
                 for k, v in item.items():
@@ -147,6 +149,8 @@ class DslConfig(BaseModel):
             ValueError: If test name is missing
         """
         tests = []
+        if tests_data is None:
+            return tests
         for test_data in tests_data:
             if isinstance(test_data, dict):
                 if test_data.get("name", None) is None:
@@ -168,6 +172,8 @@ class DslConfig(BaseModel):
             ValueError: If service name is missing
         """
         services = []
+        if services_data is None:
+            return services
         for service_data in services_data:
             if isinstance(service_data, dict):
                 if service_data.get("name", None) is None:
@@ -189,16 +195,13 @@ class DslConfig(BaseModel):
             DslConfig: An instance of the configuration model
         """
         # Transform inputs from key-value pairs to Input objects
-        if "inputs" in data:
-            data["inputs"] = cls._transform_inputs(data["inputs"])
+        data["inputs"] = cls._transform_inputs(data["inputs"])
 
         # Transform tests from list to Test objects
-        if "tests" in data:
-            data["tests"] = cls._transform_tests(data["tests"])
+        data["tests"] = cls._transform_tests(data["tests"])
 
         # Transform services from list to Service objects
-        if "services" in data:
-            data["services"] = cls._transform_services(data["services"])
+        data["services"] = cls._transform_services(data["services"])
 
         return cls(**data)
 
