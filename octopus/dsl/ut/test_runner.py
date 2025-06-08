@@ -2,6 +2,7 @@
 
 import sys
 
+import pydantic_core
 import pytest
 from loguru import logger
 
@@ -198,3 +199,131 @@ def test_create_runner():
     # Test invalid mode
     with pytest.raises(ValueError):
         create_runner("invalid_mode", {})
+
+
+@pytest.fixture
+def shell_runner_data():
+    """Create a sample shell runner configuration."""
+    return {
+        "cmd": ["echo", "test"],
+    }
+
+
+@pytest.fixture
+def http_runner_data():
+    """Create a sample HTTP runner configuration."""
+    return {
+        "method": "GET",
+        "endpoint": "http://localhost:8080",
+        "header": "",
+        "payload": "",
+    }
+
+
+@pytest.fixture
+def grpc_runner_data():
+    """Create a sample gRPC runner configuration."""
+    return {
+        "function": "hello.Greeter/SayHello",
+        "endpoint": "localhost:50051",
+        "payload": '{"name": "World"}',
+    }
+
+
+@pytest.fixture
+def pytest_runner_data():
+    """Create a sample pytest runner configuration."""
+    return {
+        "root_dir": "./tests",
+        "test_args": ["test_file.py"],
+    }
+
+
+@pytest.fixture
+def docker_runner_data():
+    """Create a sample docker runner configuration."""
+    return {
+        "cntr_name": "test_container",
+        "cmd": ["echo", "test"],
+    }
+
+
+def test_shell_runner(shell_runner_data):
+    """Test shell runner functionality."""
+    runner = ShellRunner(**shell_runner_data)
+    assert runner.cmd == ["echo", "test"]
+    assert runner.get_command() == "echo test"
+
+
+def test_http_runner(http_runner_data):
+    """Test HTTP runner functionality."""
+    runner = HttpRunner(**http_runner_data)
+    assert runner.method == "GET"
+    assert runner.endpoint == "http://localhost:8080"
+    assert runner.header == ""
+    assert runner.payload == ""
+    assert runner.get_command() == "curl -X GET 'http://localhost:8080'"
+
+    # Test with payload
+    runner.payload = '{"data": "test"}'
+    assert runner.get_command() == "curl -X GET 'http://localhost:8080'"
+
+    # Test with header
+    runner.header = "Content-Type: application/json"
+    assert runner.get_command() == "curl -H 'Content-Type: application/json' -X GET 'http://localhost:8080'"
+
+
+def test_grpc_runner(grpc_runner_data):
+    """Test gRPC runner functionality."""
+    runner = GrpcRunner(**grpc_runner_data)
+    assert runner.function == "hello.Greeter/SayHello"
+    assert runner.endpoint == "localhost:50051"
+    assert runner.payload == '{"name": "World"}'
+    assert runner.get_command() == 'grpcurl -d \'{"name": "World"}\' -plaintext localhost:50051 hello.Greeter/SayHello'
+
+
+def test_pytest_runner(pytest_runner_data):
+    """Test pytest runner functionality."""
+    runner = PytestRunner(**pytest_runner_data)
+    assert runner.root_dir == "./tests"
+    assert runner.test_args == ["test_file.py"]
+    assert runner.get_command() == "pytest --rootdir ./tests test_file.py"
+
+
+def test_docker_runner(docker_runner_data):
+    """Test docker runner functionality."""
+    runner = DockerRunner(**docker_runner_data)
+    assert runner.cntr_name == "test_container"
+    assert runner.cmd == ["echo", "test"]
+    assert runner.get_command() == "docker exec test_container echo test"
+
+
+def test_runner_validation():
+    """Test runner validation."""
+    # Test shell runner validation
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation error for ShellRunner"):
+        ShellRunner()
+
+    # Test HTTP runner validation
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation errors for HttpRunner"):
+        HttpRunner()
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation errors for HttpRunner"):
+        HttpRunner(method="GET")
+
+    # Test gRPC runner validation
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation errors for GrpcRunner"):
+        GrpcRunner()
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation errors for GrpcRunner"):
+        GrpcRunner(function="hello.Greeter/SayHello")
+
+    # Test pytest runner validation
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation error for PytestRunner"):
+        PytestRunner()
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation error for PytestRunner"):
+        PytestRunner(root_dir="./tests")
+
+    # Test docker runner validation
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation errors for DockerRunner"):
+        DockerRunner()
+    with pytest.raises(pydantic_core._pydantic_core.ValidationError, match="validation error for DockerRunner"):
+        DockerRunner(cntr_name="test_container")

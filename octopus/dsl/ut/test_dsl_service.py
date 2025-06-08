@@ -1,5 +1,7 @@
 """Unit tests for DslService class."""
 
+import copy
+
 import pytest
 from pydantic import ValidationError
 
@@ -20,6 +22,23 @@ def valid_service_data():
         "depends_on": ["service_a", "service_b"],
         "trigger": ["test_a", "test_b"],
         "next": ["service_d"],
+    }
+
+
+@pytest.fixture
+def sample_service_data():
+    """Create a sample service configuration for testing."""
+    return {
+        "name": "service1",
+        "desc": "Test service",
+        "image": "nginx:latest",
+        "args": ["--name", "test_container"],
+        "envs": ["ENV=test"],
+        "ports": ["80:80"],
+        "vols": ["~/data:/data"],
+        "next": ["service2"],
+        "depends_on": ["service0"],
+        "trigger": ["test1"],
     }
 
 
@@ -237,3 +256,126 @@ def test_dsl_service_next_invalid_service():
     )
     assert service.next == ["non_existent_service"]
     assert service.to_dict()["next"] == ["non_existent_service"]
+
+
+def test_dsl_service_variable_evaluation(sample_service_data):
+    """Test variable evaluation in service configuration."""
+    # Add variables to service data
+    sample_service_data["name"] = "${service_name}"
+    sample_service_data["args"] = ["--name", "${container_name}"]
+    sample_service_data["envs"] = ["ENV=${env_value}"]
+
+    service = DslService.from_dict(sample_service_data)
+
+    # Evaluate with variables
+    variables = {
+        "service_name": "new_service",
+        "container_name": "new_container",
+        "env_value": "prod",
+    }
+    service.evaluate(variables)
+
+    # Check variable replacement
+    assert service.name == "new_service"
+    assert service.args == ["--name", "new_container"]
+    assert service.envs == ["ENV=prod"]
+
+
+def test_dsl_service_idempotent_evaluation(sample_service_data):
+    """Test that multiple evaluations produce the same result."""
+    service = DslService.from_dict(sample_service_data)
+
+    # First evaluation
+    variables = {"service_name": "service1"}
+    service.evaluate(variables)
+    first_result = copy.deepcopy(service.model_dump())
+
+    # Second evaluation with different variables
+    variables = {"service_name": "service2"}
+    service.evaluate(variables)
+    second_result = service.model_dump()
+    print(first_result)
+    print(second_result)
+
+    # Third evaluation with original variables
+    variables = {"service_name": "service1"}
+    service.evaluate(variables)
+    third_result = service.model_dump()
+
+    # First and third results should be identical
+    assert first_result == third_result
+
+
+def test_dsl_service_get_command(sample_service_data):
+    """Test getting service command."""
+    service = DslService.from_dict(sample_service_data)
+    expected_cmd = (
+        "docker run  --name service1 --name test_container -e ENV=test -p 80:80 -v ~/data:/data  nginx:latest"
+    )
+    assert service.get_command() == expected_cmd
+
+
+def test_dsl_service_get_depends_on(sample_service_data):
+    """Test getting service dependencies."""
+    service = DslService.from_dict(sample_service_data)
+    assert service.get_depends_on() == ["service0"]
+
+    # Test with empty depends_on
+    service.depends_on = None
+    assert service.get_depends_on() == []
+
+
+def test_dsl_service_get_trigger(sample_service_data):
+    """Test getting service triggers."""
+    service = DslService.from_dict(sample_service_data)
+    assert service.get_trigger() == ["test1"]
+
+    # Test with empty trigger
+    service.trigger = None
+    assert service.get_trigger() == []
+
+
+def test_dsl_service_get_next(sample_service_data):
+    """Test getting service next."""
+    service = DslService.from_dict(sample_service_data)
+    assert service.get_next() == ["service2"]
+
+    # Test with empty next
+    service.next = []
+    assert service.get_next() == []
+
+
+def test_dsl_service_to_dict(sample_service_data):
+    """Test converting service to dictionary."""
+    service = DslService.from_dict(sample_service_data)
+    service_dict = service.to_dict()
+
+    assert service_dict["name"] == "service1"
+    assert service_dict["image"] == "nginx:latest"
+    assert service_dict["args"] == ["--name", "test_container"]
+    assert service_dict["envs"] == ["ENV=test"]
+    assert service_dict["ports"] == ["80:80"]
+    assert service_dict["vols"] == ["~/data:/data"]
+    assert service_dict["next"] == ["service2"]
+    assert service_dict["depends_on"] == ["service0"]
+    assert service_dict["trigger"] == ["test1"]
+
+
+def test_dsl_service_minimal_config():
+    """Test service with minimal configuration."""
+    minimal_data = {
+        "name": "minimal_service",
+        "desc": "Minimal service",
+        "image": "nginx:latest",
+    }
+    service = DslService.from_dict(minimal_data)
+
+    assert service.name == "minimal_service"
+    assert service.image == "nginx:latest"
+    assert service.args == []
+    assert service.envs == []
+    assert service.ports == []
+    assert service.vols == []
+    assert service.next == []
+    assert service.depends_on == []
+    assert service.trigger == []

@@ -1,5 +1,6 @@
 """Unit tests for DslTest class."""
 
+import copy
 import sys
 
 import pytest
@@ -120,6 +121,25 @@ def valid_grpc_test_data():
         "expect": {
             "exit_code": 201,
             "response": "Hello, World!",
+        },
+    }
+
+
+@pytest.fixture
+def sample_test_data():
+    """Create a sample test configuration for testing."""
+    return {
+        "name": "test_shell",
+        "desc": "Test shell command",
+        "mode": "shell",
+        "needs": ["service1"],
+        "runner": {
+            "cmd": ["echo", "test1"],
+        },
+        "expect": {
+            "exit_code": 0,
+            "stdout": "test1",
+            "stderr": "",
         },
     }
 
@@ -317,7 +337,7 @@ def test_dsl_test_runner_type_validation():
         logger.debug(f"Runner type validation passed for mode {mode}")
 
 
-def test_dsl_test_expect_validation():
+def test_dsl_test_expect_http_validation():
     """Test expect validation and initialization."""
     # Test expect initialization with mode
     test = DslTest(
@@ -427,3 +447,183 @@ def test_dsl_test_to_dict():
         "status_code": 201,
         "response": '{"data": "Hello, World!"}',
     }
+
+
+def test_dsl_test_variable_evaluation(sample_test_data):
+    """Test variable evaluation in test configuration."""
+    # Add variables to test data
+    sample_test_data["needs"] = ["${service_name}"]
+    sample_test_data["runner"]["cmd"] = ["echo", "${message}"]
+
+    test = DslTest.from_dict(sample_test_data)
+
+    # Evaluate with variables
+    variables = {
+        "service_name": "new_service",
+        "message": "Hello World",
+    }
+    test.evaluate(variables)
+
+    # Check variable replacement
+    assert test.needs == ["new_service"]
+    assert test.runner.cmd == ["echo", "Hello World"]
+
+
+def test_dsl_test_mode_validation():
+    """Test test mode validation."""
+    # Test valid mode
+    test_data = {
+        "name": "test_shell",
+        "desc": "Test shell command",
+        "mode": "shell",
+        "runner": {"cmd": ["echo", "test"]},
+        "expect": {"exit_code": 0, "stdout": "test", "stderr": ""},
+    }
+    test = DslTest.from_dict(test_data)
+    assert test.mode == TestMode.SHELL
+
+    # Test invalid mode
+    test_data["mode"] = "invalid_mode"
+    with pytest.raises(ValueError, match="'invalid_mode' is not a valid TestMode"):
+        DslTest.from_dict(test_data)
+
+
+def test_dsl_test_runner_validation():
+    """Test runner validation for different test modes."""
+    # Test shell runner
+    test_data = {
+        "name": "test_shell",
+        "desc": "Test shell command",
+        "mode": "shell",
+        "runner": {"cmd": ["echo", "test"]},
+        "expect": {"exit_code": 0, "stdout": "test", "stderr": ""},
+    }
+    test = DslTest.from_dict(test_data)
+    assert isinstance(test.runner, ShellRunner)
+
+    # Test HTTP runner
+    test_data["mode"] = "http"
+    test_data["runner"] = {
+        "method": "GET",
+        "endpoint": "http://localhost:8080",
+        "header": "",
+        "payload": "",
+    }
+    test_data["expect"] = {
+        "status_code": 200,
+        "response": '{"data": "test"}',
+    }
+    test = DslTest.from_dict(test_data)
+    assert isinstance(test.runner, HttpRunner)
+
+    # Test gRPC runner
+    test_data["mode"] = "grpc"
+    test_data["runner"] = {
+        "function": "hello.Greeter/SayHello",
+        "endpoint": "localhost:50051",
+        "payload": '{"name": "World"}',
+    }
+    test_data["expect"] = {
+        "exit_code": 0,
+        "response": '{"data": "test"}',
+    }
+    test = DslTest.from_dict(test_data)
+    assert isinstance(test.runner, GrpcRunner)
+
+    # Test pytest runner
+    test_data["mode"] = "pytest"
+    test_data["runner"] = {
+        "root_dir": "./tests",
+        "test_args": ["test_file.py"],
+    }
+    test = DslTest.from_dict(test_data)
+    assert isinstance(test.runner, PytestRunner)
+
+    # Test docker runner
+    test_data["mode"] = "docker"
+    test_data["runner"] = {
+        "cntr_name": "test_container",
+        "cmd": ["echo", "test"],
+    }
+    test_data["expect"] = {
+        "exit_code": 0,
+        "stdout": "test",
+        "stderr": "",
+    }
+    test = DslTest.from_dict(test_data)
+    assert isinstance(test.runner, DockerRunner)
+
+
+def test_dsl_test_expect_shell_validation():
+    """Test expect validation for different test modes."""
+    # Test shell expect
+    test_data = {
+        "name": "test_shell",
+        "desc": "Test shell command",
+        "mode": "shell",
+        "runner": {"cmd": ["echo", "test"]},
+        "expect": {
+            "exit_code": 0,
+            "stdout": "test",
+            "stderr": "",
+        },
+    }
+    test = DslTest.from_dict(test_data)
+    assert test.expect.exit_code == 0
+    assert test.expect.stdout == "test"
+
+    # Test HTTP expect
+    test_data["mode"] = "http"
+    test_data["runner"] = {
+        "header": "",
+        "method": "GET",
+        "endpoint": "http://localhost:8080",
+    }
+    test_data["expect"] = {
+        "status_code": 200,
+        "response": '{"data": "test"}',
+    }
+    test = DslTest.from_dict(test_data)
+    assert test.expect.status_code == 200
+    assert test.expect.response == '{"data": "test"}'
+
+
+def test_dsl_test_idempotent_evaluation(sample_test_data):
+    """Test that multiple evaluations produce the same result."""
+    test = DslTest.from_dict(sample_test_data)
+
+    # First evaluation
+    variables = {"service_name": "service1"}
+    test.evaluate(variables)
+    first_result = copy.deepcopy(test.model_dump())
+
+    # Second evaluation with different variables
+    variables = {"service_name": "service2"}
+    test.evaluate(variables)
+    second_result = test.model_dump()
+    print(first_result)
+    print(second_result)
+
+    # Third evaluation with original variables
+    variables = {"service_name": "service1"}
+    test.evaluate(variables)
+    third_result = test.model_dump()
+
+    # First and third results should be identical
+    assert first_result == third_result
+
+
+def test_dsl_test_get_command(sample_test_data):
+    """Test getting test command."""
+    test = DslTest.from_dict(sample_test_data)
+    assert test.get_command() == "echo test1"
+
+
+def test_dsl_test_get_needs(sample_test_data):
+    """Test getting test needs."""
+    test = DslTest.from_dict(sample_test_data)
+    assert test.get_needs() == ["service1"]
+
+    # Test with empty needs
+    test.needs = None
+    assert test.get_needs() == []
