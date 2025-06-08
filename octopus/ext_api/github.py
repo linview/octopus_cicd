@@ -1,6 +1,6 @@
 from typing import Any
 
-from octopus.ci.base import CIAdapter
+from octopus.ext_api.base import CIAdapter
 
 
 class GitHubAdapter(CIAdapter):

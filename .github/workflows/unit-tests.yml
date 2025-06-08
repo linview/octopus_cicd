@@ -1,0 +1,44 @@
+name: Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python versions to test against'
+        type: string
+        default: '3.12'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  unit-tests:
+    runs-on: self-hosted, ali.ecs
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Create and activate virtual environment
+      run: |
+        uv venv .venv
+        source .venv/bin/activate
+
+    - name: Install dependencies
+      run: |
+        uv sync
+
+    - name: Run unit tests
+      run: |
+        chmod +x ./ci/scripts/run_unit_tests.sh
+        ./ci/scripts/run_unit_tests.sh

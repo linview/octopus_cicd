@@ -1,0 +1,134 @@
+version: 0.1.0
+name: config_sample
+desc: Sample config DSL for v0.1.0
+
+inputs:
+  - service_name: service1
+  - $cntr_name: service_container
+  - $HOST_HTTP_PORT: 8080
+  - $ENV_LOG_SETTING: "NIM_LOG=debug"
+  - $echo_word: "'Great Job!'"
+  - $exit_code_2: 2
+
+services:
+  - name: service_simple
+    desc: "simple service verify container start"
+    next:
+      - ${service_name}
+      - service2
+    image: nginx:latest
+    # if no '--name' in args, the container name will be the service name:w
+    args:
+      - --ulimit nofile=1024:1024
+      - --device all
+      - --privileged
+      - -m 512m
+    ports:
+      - 80:80
+    envs:
+      - DEBUG_LOG=debug
+    vols:
+      - ~/data:/data
+  - name: ${service_name}      # reserved kw instance w/ lazy-var
+    desc: "service verify lazy-var in service name, envs, ports, vols; 'depends_on' kw"
+    # serivce dependency kw: service_A depends_on service_B; service_A, service_B must be valid
+    next: [ service2 ]
+    trigger: [ test_shell ]
+    depends_on:
+      - service2
+    image: nginx:latest
+    args:
+      - --name ${service_name}_cntr
+    ports:
+      - ${$HOST_HTTP_PORT}:80   # value w/ lazy-var
+    envs:
+      - ENV=test
+      - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
+    vols:
+      - ~/data:/data
+  - name: container4test
+    desc: "test container verify 'needs', 'depends_on' kw "
+    trigger: [ test_docker ]
+    # container include test_cases, it can be triggered by test_cases
+    depends_on: [ service_simple ]
+    image: test_image:latest
+    args: []
+    ports:
+      - 80:80
+    envs:
+      - ENV=test
+      - ${$ENV_LOG_SETTING}     # env var pair w/ lazy-var
+    vols: []
+  - name: service2
+    desc: "service verify 'trigger' kw"
+    next: [ container4test ]
+    trigger: [ test_http, test_grpc ]   # service trigger kw: service_A trigger test1, test2; test1, test2 must be valid
+    image: nginx:latest
+    args:
+      - --name ${$cntr_name}
+    envs: []
+    vols: []
+    ports:
+      - 80:80
+
+tests:
+  - name: test_shell
+    # default test name is the test case name, e.g. test_shell, test_http, test_pytest, test_docker, test_grpc
+    desc: "test in shell cmd"
+    needs:
+      - ${service_name}
+    mode: shell
+    runner:
+      cmd:
+        - "echo"
+        - ${$echo_word}
+    expect:
+      exit_code: ${$exit_code_2}
+      stdout: "Hello, World!"
+      stderr: ""
+  - name: test_http
+    desc: "test via http client"
+    mode: http
+    runner:
+      header: ""
+      method: "POST"
+      payload: "{\"greeting\": \"Hello, World!\"}"
+      endpoint: "http://localhost:8080"
+    expect:
+      status_code: 201
+      response: "{\"data\": \"Hello, World!\"}"
+  - name: test_pytest
+    # test running w/ pytest cli, e.g. pytest --rootdir=<root_dir> <args>.
+    # <root_dir> is the root directory of the project, <args> is the arguments for pytest.
+    desc: "test run by pytest cli"
+    mode: pytest
+    runner:
+      root_dir: ./octopus/dsl/ut
+      test_args: ["octopus/dsl/ut/test_runner.py", "-v", "-s", "-k", "test_docker_runner_"]
+    expect:
+      # pytest exit_code: https://docs.pytest.org/en/stable/reference/reference.html#pytest.ExitCode
+      exit_code: 0
+  - name: test_docker
+    # assume test case is running in docker container, e..g docker exec <container_id> <cmd>
+    needs: [ container4test ]   # needs kw: test_docker will check service test_container is running
+    desc: "test run in docker container"
+    mode: docker
+    runner:
+      cntr_name: "container4test"
+      cmd: ["echo", '"Hello, World!"']
+    expect:
+      exit_code: 0
+      stdout: "Hello, World!"
+      stderr: ""
+  - name: test_grpc
+    # grpcurl -d '{"name": "World"}' -plaintext localhost:50051 hello.Greeter/SayHello
+    desc: "test run by grpc client"
+    mode: grpc
+    runner:
+      proto: "hello.proto"    # optional, needed if server doesn't support reflection.
+      function: "hello.Greeter/SayHello"
+      endpoint: "localhost:50051"
+      payload: '{"name": "World"}'
+    expect:
+      exit_code: 201
+      response: "Hello, World!"
