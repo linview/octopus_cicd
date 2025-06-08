@@ -2,9 +2,12 @@
 Service configuration models.
 """
 
+import copy
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from octopus.dsl.variable import VariableEvaluator
 
 
 class DslService(BaseModel):
@@ -36,8 +39,8 @@ class DslService(BaseModel):
             **data: Service configuration data
         """
         super().__init__(**data)
-        self._name = data.get("name", "")
-        self._desc = data.get("desc", "")
+        # Store original data for evaluate
+        self.__origin_data = copy.deepcopy(data)
 
     @classmethod
     def from_dict(cls, body: dict[str, Any]) -> "DslService":
@@ -51,11 +54,25 @@ class DslService(BaseModel):
     def evaluate(self, variables: dict[str, Any]) -> None:
         """Evaluate the service with given variables.
 
+        This method is idempotent, meaning it can be called multiple times with the same
+        variables and produce the same result. It achieves this by:
+        1. Restoring the original data from __origin_data
+        2. Evaluating variables in the restored data
+        3. Updating the model with evaluated values
+
         Args:
             variables: A dictionary of variables to evaluate the service with
         """
-        # data = self.model_dump()
-        ...
+        # Restore original data
+        data = copy.deepcopy(self.__origin_data)
+
+        # Evaluate variables in the data
+        VariableEvaluator.evaluate_dict(data, variables)
+
+        # Update model with evaluated values
+        for key, value in data.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the service instance to a dictionary."""
@@ -72,3 +89,12 @@ class DslService(BaseModel):
     def get_next(self) -> list[str]:
         """Get the next of the service."""
         return self.next or []
+
+    def __repr__(self) -> str:
+        """Return the string representation of the service instance."""
+        attrs = []
+        for field in self.model_fields:
+            value = getattr(self, field)
+            if value is not None:
+                attrs.append(f"{field}={value!r}")
+        return f"DslService({', '.join(attrs)})"

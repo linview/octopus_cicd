@@ -59,19 +59,8 @@ class DslConfig(BaseModel):
             if input.is_lazy:
                 self._lazy_vars[input.key] = input
 
-        # Initialize services mapping with duplicate check
-        self._services_dict = {}
-        for service in self.services:
-            if service.name in self._services_dict:
-                raise ValueError(f"Duplicate service name found: {service.name}")
-            self._services_dict[service.name] = service
-
-        # Initialize tests mapping with duplicate check
-        self._tests_dict = {}
-        for test in self.tests:
-            if test.name in self._tests_dict:
-                raise ValueError(f"Duplicate test name found: {test.name}")
-            self._tests_dict[test.name] = test
+        self._refresh_services_dict()
+        self._refresh_tests_dict()
 
         self._init_dag()
 
@@ -380,6 +369,25 @@ class DslConfig(BaseModel):
             test.evaluate(var_dict)
         for service in self.services:
             service.evaluate(var_dict)
+
+        self._refresh_services_dict()
+        self._refresh_tests_dict()
+
+    def _refresh_services_dict(self):
+        """refresh services mapping"""
+        self._services_dict = {}
+        for service in self.services:
+            if service.name in self._services_dict:
+                raise ValueError(f"Duplicate service name found: {service.name}")
+            self._services_dict[service.name] = service
+
+    def _refresh_tests_dict(self):
+        """refresh tests mapping"""
+        self._tests_dict = {}
+        for test in self.tests:
+            if test.name in self._tests_dict:
+                raise ValueError(f"Duplicate test name found: {test.name}")
+            self._tests_dict[test.name] = test
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the configuration instance to a dictionary.
