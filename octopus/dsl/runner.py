@@ -2,14 +2,16 @@
 Test runner implementations.
 """
 
+import copy
 import sys
 from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from octopus.dsl.constants import TEST_RUNNER_FIELDS, HttpMethod, TestMode
 from octopus.dsl.interface import RunnerInterface
+from octopus.dsl.variable import VariableEvaluator
 
 logger.remove()
 logger.add(sys.stdout, level="DEBUG")
@@ -18,6 +20,8 @@ logger.add(sys.stdout, level="DEBUG")
 class BaseRunner(BaseModel, RunnerInterface):
     """Base class for all test runners."""
 
+    __origin_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, **data: Any):
         """Initialize the runner with configuration.
 
@@ -25,7 +29,8 @@ class BaseRunner(BaseModel, RunnerInterface):
             **data: Runner configuration data
         """
         super().__init__(**data)
-        self._config = data
+        # Store original data for evaluate
+        self.__origin_data = copy.deepcopy(data)
 
     def get_config(self) -> dict[str, Any]:
         """Get the runner's configuration.
@@ -33,7 +38,7 @@ class BaseRunner(BaseModel, RunnerInterface):
         Returns:
             Dict[str, Any]: The runner's configuration dictionary
         """
-        return self._config
+        return self.model_dump()
 
     def get_command(self) -> str:
         """Get the executable command string.
@@ -42,6 +47,30 @@ class BaseRunner(BaseModel, RunnerInterface):
             str: The command string that can be executed
         """
         raise NotImplementedError("Subclasses must implement get_command")
+
+    def evaluate(self, variables: dict[str, Any]) -> None:
+        """Evaluate the runner with given variables.
+
+        This method is idempotent, multiple evaluations produce the same result.
+        1. Restoring the original data from __origin_data
+        2. Evaluating variables in the restored data
+        3. Updating the model with evaluated values
+
+        Args:
+            variables: A dictionary of variables to evaluate the runner with
+        """
+        # Restore original data
+        data = copy.deepcopy(self.__origin_data)
+
+        # Evaluate variables in the data
+        VariableEvaluator.evaluate_dict(data, variables)
+
+        # Update model with evaluated values
+        updated_data = self.model_validate(data)
+        for k, v in updated_data.__dict__.items():
+            if k.startswith("_") or k in ["model_config", "model_fields"]:
+                continue
+            setattr(self, k, v)
 
     def __repr__(self) -> str:
         """Return the string representation of the runner instance."""
@@ -59,14 +88,6 @@ class ShellRunner(BaseRunner):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     cmd: list[str] = Field(description="Shell command")
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        self._config = self.model_dump()
-
-    def get_config(self) -> dict[str, Any]:
-        self._config.update({"cmd": self.cmd})
-        return self._config
 
     def get_command(self) -> str:
         """Get the shell command string.
@@ -86,16 +107,6 @@ class HttpRunner(BaseRunner):
     method: HttpMethod = Field(default=HttpMethod.GET, description="HTTP method")
     payload: str | None = Field(default=None, description="HTTP payload")
     endpoint: str = Field(description="HTTP endpoint")
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        self._config = self.model_dump()
-
-    def get_config(self) -> dict[str, Any]:
-        self._config.update(
-            {"header": self.header, "method": self.method, "payload": self.payload, "endpoint": self.endpoint}
-        )
-        return self._config
 
     def get_command(self) -> str:
         """Get the HTTP request command string.
@@ -127,14 +138,6 @@ class GrpcRunner(BaseRunner):
     endpoint: str = Field(description="gRPC endpoint")
     payload: str = Field(description="gRPC payload")
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        self._config = self.model_dump()
-
-    def get_config(self) -> dict[str, Any]:
-        self._config.update({"function": self.function, "endpoint": self.endpoint, "payload": self.payload})
-        return self._config
-
     def get_command(self) -> str:
         """Get the gRPC request command string.
 
@@ -161,14 +164,6 @@ class PytestRunner(BaseRunner):
     root_dir: str | None = Field(default=None, description="Pytest root directory")
     test_args: list[str] = Field(description="Pytest test arguments")
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        self._config = self.model_dump()
-
-    def get_config(self) -> dict[str, Any]:
-        self._config.update({"root_dir": self.root_dir, "test_args": self.test_args})
-        return self._config
-
     def get_command(self) -> str:
         """Get the pytest command string.
 
@@ -194,14 +189,6 @@ class DockerRunner(BaseRunner):
 
     cntr_name: str = Field(description="Docker container name to run command")
     cmd: list[str] = Field(description="Execute command in docker container")
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-        self._config = self.model_dump()
-
-    def get_config(self) -> dict[str, Any]:
-        self._config.update({"cmd": self.cmd, "cntr_name": self.cntr_name})
-        return self._config
 
     def get_command(self) -> str:
         """Get the docker command string.

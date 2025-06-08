@@ -93,6 +93,23 @@ class DslService(BaseModel):
         """Get the next of the service."""
         return self.next or []
 
+    def get_command(self) -> str:
+        """Get the command of the service."""
+        cmd = "docker run"
+        if self.name:
+            cmd += f" --name {self.name}"
+        if self.args:
+            cmd += " ".join(self.args)
+        if self.envs:
+            cmd += " ".join([f"-e {env}" for env in self.envs])
+        if self.ports:
+            cmd += " ".join([f"-p {port}" for port in self.ports])
+        if self.vols:
+            cmd += " ".join([f"-v {vol}" for vol in self.vols])
+        if self.image:
+            cmd += f" {self.image}"
+        return cmd
+
     def __repr__(self) -> str:
         """Return the string representation of the service instance."""
         attrs = []

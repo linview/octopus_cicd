@@ -264,6 +264,10 @@ class DslTest(BaseModel):
         """Get the needs of the test."""
         return self.needs or []
 
+    def get_command(self) -> str:
+        """Get the command of the test."""
+        return self.runner.get_command()
+
     def __repr__(self) -> str:
         """Return the string representation of the test instance."""
         attrs = []
