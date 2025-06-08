@@ -5,7 +5,7 @@ Service configuration models.
 import copy
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from octopus.dsl.variable import VariableEvaluator
 
@@ -32,6 +32,8 @@ class DslService(BaseModel):
     )
     trigger: list[str] | None = Field(default_factory=list, description="the tests that current one triggers")
 
+    __origin_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, **data):
         """Initialize service configuration.
 
@@ -54,8 +56,7 @@ class DslService(BaseModel):
     def evaluate(self, variables: dict[str, Any]) -> None:
         """Evaluate the service with given variables.
 
-        This method is idempotent, meaning it can be called multiple times with the same
-        variables and produce the same result. It achieves this by:
+        This method is idempotent, multiple evaluateions produce the same result.
         1. Restoring the original data from __origin_data
         2. Evaluating variables in the restored data
         3. Updating the model with evaluated values
@@ -70,9 +71,11 @@ class DslService(BaseModel):
         VariableEvaluator.evaluate_dict(data, variables)
 
         # Update model with evaluated values
-        for key, value in data.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+        updated_data = self.model_validate(data)
+        for k, v in updated_data.__dict__.items():
+            if k.startswith("_") or k in ["model_config", "model_fields"]:
+                continue
+            setattr(self, k, v)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the service instance to a dictionary."""
