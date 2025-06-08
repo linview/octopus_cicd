@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from networkx import DiGraph
 
 from octopus.dsl.checker import Expect
 from octopus.dsl.constants import TestMode
@@ -190,11 +191,7 @@ def test_execution_plan(valid_config):
     dag_manager = DAGManager(valid_config)
     plan = dag_manager.generate_execution_plan()
 
-    # Verify deployment order
-    assert plan["deploy"] == ["service_1", "service_2", "service_3"]
-
-    # Verify execution order
-    assert plan["execute"] == ["test_1", "test_2", "test_3"]
+    assert plan == ["service_1", "test_1", "service_2", "test_2", "service_3", "test_3"]
 
 
 def test_invalid_dag_topological_sort(cyclic_config):
@@ -273,7 +270,178 @@ def test_yaml_config():
 
         # Test execution plan
         plan = dag_manager.generate_execution_plan()
-        assert plan["deploy"] == ["service_1", "service_2"]
-        assert plan["execute"] == ["test_1", "test_2"]
+        assert plan == ["service_1", "test_1", "service_2", "test_2"]
     finally:
         Path(temp_yaml_path).unlink()
+
+
+@pytest.fixture
+def sample_config():
+    """Create a sample configuration for testing."""
+    services = [
+        DslService(
+            name="service1",
+            desc="Service 1",
+            image="nginx:latest",
+            next=["service2"],
+            trigger=["test1"],
+        ),
+        DslService(
+            name="service2",
+            desc="Service 2",
+            image="nginx:latest",
+            next=["service3"],
+            trigger=["test2"],
+        ),
+        DslService(
+            name="service3",
+            desc="Service 3",
+            image="nginx:latest",
+            trigger=["test3"],
+        ),
+    ]
+
+    tests = [
+        DslTest(
+            name="test1",
+            desc="Test 1",
+            mode="shell",
+            needs=["service1"],
+            runner={"cmd": ["echo", "test1"]},
+            expect={"mode": "shell", "exit_code": 0, "stdout": "test1", "stderr": ""},
+        ),
+        DslTest(
+            name="test2",
+            desc="Test 2",
+            mode="shell",
+            needs=["service2"],
+            runner={"cmd": ["echo", "test2"]},
+            expect={"mode": "shell", "exit_code": 0, "stdout": "test2", "stderr": ""},
+        ),
+        DslTest(
+            name="test3",
+            desc="Test 3",
+            mode="shell",
+            needs=["service3"],
+            runner={"cmd": ["echo", "test3"]},
+            expect={"mode": "shell", "exit_code": 0, "stdout": "test3", "stderr": ""},
+        ),
+    ]
+
+    return DslConfig(
+        version="0.1.0",
+        name="test_config",
+        desc="Test configuration",
+        services=services,
+        tests=tests,
+    )
+
+
+def test_dag_manager_initialization(sample_config):
+    """Test DAGManager initialization."""
+    dag_manager = DAGManager(sample_config)
+    assert dag_manager.dsl_config == sample_config
+    assert isinstance(dag_manager._full_graph, DiGraph)
+
+
+def test_dag_manager_build_graph(sample_config):
+    """Test graph building functionality."""
+    dag_manager = DAGManager(sample_config)
+    graph = dag_manager._full_graph
+
+    # Check nodes
+    assert len(graph.nodes) == 6  # 3 services + 3 tests
+    assert all(graph.nodes[node].get("type") in ["service", "test"] for node in graph.nodes)
+
+    # Check edges
+    assert len(graph.edges) == 8  # 2 next + 3 trigger + 3 needs
+    assert all(edge[2].get("type") in ["next", "trigger", "needs"] for edge in graph.edges(data=True))
+
+
+def test_dag_manager_execution_plan(sample_config):
+    """Test execution plan generation."""
+    dag_manager = DAGManager(sample_config)
+    execution_plan = dag_manager.generate_execution_plan()
+
+    # Check execution order
+    assert execution_plan == [
+        "service1",
+        "test1",
+        "service2",
+        "test2",
+        "service3",
+        "test3",
+    ]
+
+
+def test_dag_manager_invalid_dag():
+    """Test handling of invalid DAG (cyclic dependencies)."""
+    services = [
+        DslService(
+            name="service1",
+            desc="Service 1",
+            image="nginx:latest",
+            next=["service2"],
+        ),
+        DslService(
+            name="service2",
+            desc="Service 2",
+            image="nginx:latest",
+            next=["service1"],  # Creates a cycle
+        ),
+    ]
+
+    config = DslConfig(
+        version="0.1.0",
+        name="test_config",
+        desc="Test configuration",
+        services=services,
+        tests=[],
+    )
+
+    dag_manager = DAGManager(config)
+    assert not dag_manager.is_valid_dag()
+
+
+def test_dag_manager_edge_types(sample_config):
+    """Test edge type handling."""
+    dag_manager = DAGManager(sample_config)
+
+    # Test default edge types
+    assert dag_manager.allowed_edge_types == ["next", "trigger"]
+
+    # Test setting edge types
+    dag_manager.allowed_edge_types = ["next", "trigger", "needs"]
+    assert dag_manager.allowed_edge_types == ["next", "trigger", "needs"]
+
+    # Test invalid edge type
+    with pytest.raises(ValueError):
+        dag_manager.allowed_edge_types = ["invalid_type"]
+
+
+def test_dag_manager_subgraph(sample_config):
+    """Test subgraph generation."""
+    dag_manager = DAGManager(sample_config)
+    subgraph = dag_manager._gen_subgraph()
+
+    # Check subgraph properties
+    assert isinstance(subgraph, DiGraph)
+    assert len(subgraph.nodes) == 6  # All nodes should be included
+    assert all(edge[2].get("type") in dag_manager.allowed_edge_types for edge in subgraph.edges(data=True))
+
+
+def test_dag_manager_topological_sort(sample_config):
+    """Test topological sorting."""
+    dag_manager = DAGManager(sample_config)
+    order = dag_manager.get_topological_order()
+
+    # Check order properties
+    assert len(order) == 6  # All nodes should be included
+    assert all(node in dag_manager._full_graph.nodes for node in order)
+
+    # Check that services come before their triggered tests
+    for i, node in enumerate(order):
+        if dag_manager._full_graph.nodes[node].get("type") == "service":
+            for _, test in dag_manager._full_graph.out_edges(node):
+                if dag_manager._full_graph.edges[node, test].get("type") == "trigger":
+                    assert order.index(test) > i

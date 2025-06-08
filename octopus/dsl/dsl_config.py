@@ -59,10 +59,8 @@ class DslConfig(BaseModel):
             if input.is_lazy:
                 self._lazy_vars[input.key] = input
 
-        self._refresh_services_dict()
-        self._refresh_tests_dict()
-
-        self._init_dag()
+        # evaluate with default variables
+        self.evaluate({})
 
     def _init_dag(self):
         """Init DAG with self"""
@@ -145,6 +143,8 @@ class DslConfig(BaseModel):
                 if test_data.get("name", None) is None:
                     raise ValueError("Test name is required")
                 tests.append(DslTest.from_dict(test_data))
+            elif isinstance(test_data, DslTest):
+                tests.append(test_data)
         return tests
 
     @staticmethod
@@ -168,6 +168,8 @@ class DslConfig(BaseModel):
                 if service_data.get("name", None) is None:
                     raise ValueError("Service name is required")
                 services.append(DslService.from_dict(service_data))
+            elif isinstance(service_data, DslService):
+                services.append(service_data)
         return services
 
     @classmethod

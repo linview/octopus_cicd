@@ -3,8 +3,10 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from octopus.dsl.dsl_config import DslConfig
+from octopus.dsl.variable import Variable
 
 
 @pytest.fixture
@@ -95,6 +97,64 @@ def valid_config() -> dict:
             },
         ],
     }
+
+
+@pytest.fixture
+def sample_yaml_data():
+    """Create a sample YAML configuration for testing."""
+    return {
+        "version": "0.1.0",
+        "name": "test_config",
+        "desc": "Test configuration",
+        "inputs": [
+            {"$service_name": "service1"},
+            {"$cntr_name": "svc_cntr"},
+            {"$HOST_HTTP_PORT": "8080"},
+        ],
+        "services": [
+            {
+                "name": "${$service_name}",
+                "desc": "Service 1",
+                "image": "nginx:latest",
+                "next": ["service2-${$cntr_name}"],
+                "trigger": ["test1"],
+            },
+            {
+                "name": "service2-${$cntr_name}",
+                "desc": "Service 2",
+                "image": "nginx:latest",
+                "trigger": ["test2"],
+                "ports": ["${$HOST_HTTP_PORT}:80"],
+            },
+        ],
+        "tests": [
+            {
+                "name": "test1",
+                "desc": "Test 1",
+                "mode": "shell",
+                "needs": ["${$service_name}"],
+                "runner": {"cmd": ["echo", "test1"]},
+                "expect": {"exit_code": 0, "stdout": "test1", "stderr": ""},
+            },
+            {
+                "name": "test2",
+                "desc": "Test 2",
+                "mode": "shell",
+                "needs": ["service2-${$cntr_name}"],
+                "runner": {"cmd": ["echo", "test2"]},
+                "expect": {"exit_code": 0, "stdout": "test2", "stderr": ""},
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def temp_yaml_file(tmp_path, sample_yaml_data):
+    """Create a temporary YAML file for testing."""
+    yaml_path = tmp_path / "test_config.yaml"
+    with open(yaml_path, "w") as f:
+        yaml.dump(sample_yaml_data, f)
+    return yaml_path
 
 
 @pytest.mark.smoke
@@ -427,3 +487,138 @@ def test_service_next_validation_cycle(valid_config: dict):
     config = DslConfig.from_dict(valid_config)
     # note: here we only verify service existence, not cycle dependency
     assert config.verify()
+
+
+def test_dsl_config_from_yaml_file(temp_yaml_file):
+    """Test loading configuration from YAML file."""
+    config = DslConfig.from_yaml_file(temp_yaml_file)
+    assert config.version == "0.1.0"
+    assert config.name == "test_config"
+    assert len(config.services) == 2
+    assert len(config.tests) == 2
+
+
+def test_dsl_config_inputs_validation(sample_yaml_data):
+    """Test input validation."""
+    # Test duplicate service name
+    sample_yaml_data["services"].append(sample_yaml_data["services"][0])
+    with pytest.raises(ValueError, match="Duplicate service name found"):
+        DslConfig.from_dict(sample_yaml_data)
+
+    # Test duplicate test name
+    sample_yaml_data["services"].pop()
+    sample_yaml_data["tests"].append(sample_yaml_data["tests"][0])
+    with pytest.raises(ValueError, match="Duplicate test name found"):
+        DslConfig.from_dict(sample_yaml_data)
+
+
+def test_dsl_config_variable_evaluation(sample_yaml_data):
+    """Test variable evaluation."""
+    config = DslConfig.from_dict(sample_yaml_data)
+
+    # Test normal variable evaluation
+    variables = {
+        "$service_name": "new_service",
+        "$cntr_name": "new_container",
+        "$HOST_HTTP_PORT": "9090",
+    }
+    config.evaluate(variables)
+
+    # Check service name replacement
+    assert config.services[0].name == "new_service"
+    assert config.services[1].ports == ["9090:80"]
+
+    # Check lazy variable evaluation
+    assert config._lazy_vars["$cntr_name"].value == "new_container"
+    assert config._lazy_vars["$HOST_HTTP_PORT"].value == "9090"
+
+
+def test_dsl_config_service_validation(sample_yaml_data):
+    """Test service validation."""
+    config = DslConfig.from_dict(sample_yaml_data)
+
+    # Test valid service
+    assert config.is_valid_service("service1")
+
+    # Test invalid service
+    assert not config.is_valid_service("invalid_service")
+
+
+def test_dsl_config_test_validation(sample_yaml_data):
+    """Test test validation."""
+    config = DslConfig.from_dict(sample_yaml_data)
+
+    # Test valid test
+    assert config.is_valid_test("test1")
+
+    # Test invalid test
+    assert not config.is_valid_test("invalid_test")
+
+
+def test_dsl_config_to_dict(sample_yaml_data):
+    """Test configuration serialization."""
+    config = DslConfig.from_dict(sample_yaml_data)
+    config_dict = config.to_dict()
+
+    # Check basic fields
+    assert config_dict["version"] == "0.1.0"
+    assert config_dict["name"] == "test_config"
+
+    # Check services and tests
+    assert len(config_dict["services"]) == 2
+    assert len(config_dict["tests"]) == 2
+
+
+def test_dsl_config_verify(sample_yaml_data):
+    """Test configuration verification."""
+    # Test valid configuration
+    config = DslConfig.from_dict(sample_yaml_data)
+    assert config.verify() is True
+
+    # Test invalid next reference
+    invalid_config_data = sample_yaml_data.copy()
+    invalid_config_data["services"] = [
+        {
+            "name": "service1",
+            "desc": "Service 1",
+            "image": "nginx:latest",
+            "next": ["invalid_service"],
+            "trigger": ["test1"],
+        },
+        sample_yaml_data["services"][1],
+    ]
+
+    with pytest.raises(ValueError, match="semantic check failed"):
+        DslConfig.from_dict(invalid_config_data)
+
+
+def test_dsl_config_input_transformation(sample_yaml_data):
+    """Test input transformation."""
+    config = DslConfig.from_dict(sample_yaml_data)
+
+    # Check input transformation
+    assert len(config.inputs) == 3
+    assert isinstance(config.inputs[0], Variable)
+    assert config.inputs[0].key == "$service_name"
+    assert config.inputs[0].value == "service1"
+
+
+def test_dsl_config_refresh_mappings(sample_yaml_data):
+    """Test service and test dictionary refresh."""
+    config = DslConfig.from_dict(sample_yaml_data)
+
+    # Check initial mappings
+    assert "service1" in config._services_dict
+    assert "test1" in config._tests_dict
+
+    # Modify services and tests
+    config.services.pop()
+    config.tests.pop()
+
+    # Refresh mappings
+    config._refresh_services_dict()
+    config._refresh_tests_dict()
+
+    # Check updated mappings
+    assert len(config._services_dict) == 1
+    assert len(config._tests_dict) == 1
