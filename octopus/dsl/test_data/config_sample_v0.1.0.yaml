@@ -7,6 +7,8 @@ inputs:
   - $cntr_name: service_container
   - $HOST_HTTP_PORT: 8080
   - $ENV_LOG_SETTING: "NIM_LOG=debug"
+  - $echo_word: "'Great Job!'"
+  - $exit_code_2: 2
 
 services:
   - name: service_simple
@@ -31,6 +33,7 @@ services:
     desc: "service verify lazy-var in service name, envs, ports, vols; 'depends_on' kw"
     # serivce dependency kw: service_A depends_on service_B; service_A, service_B must be valid
     next: [ service2 ]
+    trigger: [ test_shell ]
     depends_on:
       - service2
     image: nginx:latest
@@ -72,11 +75,15 @@ tests:
   - name: test_shell
     # default test name is the test case name, e.g. test_shell, test_http, test_pytest, test_docker, test_grpc
     desc: "test in shell cmd"
+    needs:
+      - ${service_name}
     mode: shell
     runner:
-      cmd: [ "echo", "'Hello, World!'" ]
+      cmd:
+        - "echo"
+        - ${$echo_word}
     expect:
-      exit_code: 0
+      exit_code: ${$exit_code_2}
       stdout: "Hello, World!"
       stderr: ""
   - name: test_http

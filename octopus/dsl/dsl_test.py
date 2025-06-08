@@ -2,10 +2,11 @@
 Test configuration models.
 """
 
+import copy
 from typing import Any
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, field_validator, model_validator
 
 from octopus.dsl.checker import Expect
 from octopus.dsl.constants import TestMode
@@ -18,6 +19,7 @@ from octopus.dsl.runner import (
     ShellRunner,
     create_runner,
 )
+from octopus.dsl.variable import VariableEvaluator
 
 
 class DslTest(BaseModel):
@@ -37,6 +39,8 @@ class DslTest(BaseModel):
     )
     expect: Expect = Field(description="Test expectations")
 
+    __origin_data: dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, **data: Any):
         """Initialize the test configuration.
 
@@ -49,6 +53,28 @@ class DslTest(BaseModel):
         # manually create expect instance, pass in mode
         if "expect" in data and isinstance(data["expect"], dict) and not isinstance(data["expect"], Expect):
             self.expect = Expect(**data["expect"])
+
+        if "runner" in data and isinstance(data["runner"], dict):
+            self.runner = create_runner(self.mode, data["runner"])
+
+        # Store original data for evaluate
+        self.__origin_data = copy.deepcopy(data)
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, v: TestMode, info: ValidationInfo) -> TestMode:
+        """Validate and initialize mode with test mode.
+
+        Args:
+            v: The mode instance
+            info: Validation info containing other field values
+
+        Returns:
+            TestMode: The validated mode instance
+        """
+        if v not in [e.value for e in TestMode]:
+            raise ValueError(f"Invalid test mode: {v}")
+        return v
 
     @field_validator("expect")
     @classmethod
@@ -131,7 +157,7 @@ class DslTest(BaseModel):
         if not isinstance(runner_config, dict):
             raise ValueError(f"Runner configuration must be a dictionary, got {type(runner_config)}")
 
-        runner = create_runner(TestMode(mode), runner_config)
+        # runner = create_runner(TestMode(mode), runner_config)
 
         # Create expect instance
         expect_config = body.get("expect", {})
@@ -145,7 +171,7 @@ class DslTest(BaseModel):
             mode=TestMode(mode),
             desc=desc,
             needs=needs,
-            runner=runner,
+            runner=runner_config,
             expect=expect_config,  # Pass the dict directly, let __init__ handle it
         )
 
@@ -191,11 +217,26 @@ class DslTest(BaseModel):
     def evaluate(self, variables: dict[str, Any]) -> None:
         """Evaluate the test with given variables.
 
+        This method is idempotent, multiple evaluations produce the same result.
+        1. Restoring the original data from __origin_data
+        2. Evaluating variables in the restored data
+        3. Updating the model with evaluated values
+
         Args:
             variables: A dictionary of variables to evaluate the test with
         """
-        # data = self.model_dump()
-        ...
+        # Restore original data
+        data = copy.deepcopy(self.__origin_data)
+
+        # Evaluate variables in the data
+        VariableEvaluator.evaluate_dict(data, variables)
+
+        # Update model with evaluated values
+        updated_data = self.model_validate(data)
+        for k, v in updated_data.__dict__.items():
+            if k.startswith("_") or k in ["model_config", "model_fields"]:
+                continue
+            setattr(self, k, v)
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Convert the model to a dictionary.

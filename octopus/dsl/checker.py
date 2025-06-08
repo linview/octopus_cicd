@@ -11,10 +11,10 @@ class Expect(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     mode: TestMode = Field(default=TestMode.NONE, description="Test mode")
-    exit_code: int | None = Field(default=None, description="Exit code")
+    exit_code: int | str | None = Field(default=None, description="Exit code")
     stdout: str | None = Field(default=None, description="Standard output")
     stderr: str | None = Field(default=None, description="Standard error")
-    status_code: int | None = Field(default=None, description="Status code")
+    status_code: int | str | None = Field(default=None, description="Status code")
     response: str | None = Field(default=None, description="Response")
 
     def __init__(self, **data: Any):

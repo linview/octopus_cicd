@@ -370,8 +370,11 @@ class DslConfig(BaseModel):
         for service in self.services:
             service.evaluate(var_dict)
 
+        # refresh services, tests lut
         self._refresh_services_dict()
         self._refresh_tests_dict()
+        # refresh DAG
+        self._init_dag()
 
     def _refresh_services_dict(self):
         """refresh services mapping"""
