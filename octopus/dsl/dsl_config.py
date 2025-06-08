@@ -37,6 +37,8 @@ class DslConfig(BaseModel):
     _services_dict: dict[str, DslService] = PrivateAttr(default_factory=dict)
     _tests_dict: dict[str, DslTest] = PrivateAttr(default_factory=dict)
     _dag_manger: DAGManager = PrivateAttr(default=None)
+    _inputs_dict: dict[str, Variable] = PrivateAttr(default_factory=dict)
+    _lazy_vars: dict[str, Variable] = PrivateAttr(default_factory=dict)
 
     def __init__(self, **data: Any):
         """Initialize configuration.
@@ -48,6 +50,14 @@ class DslConfig(BaseModel):
             ValueError: If duplicate service or test names are found
         """
         super().__init__(**data)
+        # Initialize inputs mapping
+        for input in self.inputs:
+            if input.key in self._inputs_dict:
+                logger.warning(f"Duplicate input key found: {input.key}")
+            self._inputs_dict[input.key] = input
+            if input.is_lazy:
+                self._lazy_vars[input.key] = input
+
         # Initialize services mapping with duplicate check
         self._services_dict = {}
         for service in self.services:
